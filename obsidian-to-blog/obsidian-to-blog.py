@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import shutil
 import re
@@ -6,20 +7,7 @@ from dotenv import load_dotenv
 import datetime
 
 
-def update_image_links(content, image_folder_name):
-    # Regular expression to find Obsidian image links
-    pattern = r"!\[\[(.*?)\]\]"
-
-    def replace_func(match):
-        image_name = match.group(1)
-        # Directly construct the replacement string using the image folder and image name
-        return f'![image]("{image_folder_name}/{image_name}")'
-
-    # Replace all occurrences of the pattern with the Hugo-compatible image links
-    return re.sub(pattern, replace_func, content)
-
-
-def main(document_name):
+def _main(document_name):
     load_dotenv()
     source_folder = os.getenv('OBSIDIAN_SOURCE_FOLDER')
     destination_folder = os.getenv('BLOG_DESTINATION_FOLDER')
@@ -43,13 +31,18 @@ def main(document_name):
         content = file.read()
 
     # Copy images
-    images = re.findall(r"!\[\[(.*?)\]\]", content)
-    for image in images:
-        source_image_path = os.path.join(source_folder, "Attachments", image)
-        dest_image_path = os.path.join(dest_image_folder, image)
-        shutil.copy2(source_image_path, dest_image_path)
+    images = re.findall(r"!\[\[(.*?)]]", content)
+    for image_name in images:
+        source_image_path = os.path.join(source_folder, "Attachments", image_name)
+        sanitized_image_name = _sanitize_filename(image_name)
+        dest_image_path = os.path.join(dest_image_folder, sanitized_image_name)
+        # Make sure the source image exists before attempting to copy
+        if os.path.exists(source_image_path):
+            shutil.copy2(source_image_path, dest_image_path)
+        else:
+            print(f"Warning: Image {image_name} not found in Attachments.")
 
-    updated_content = update_image_links(content, image_folder_name)
+    updated_content = _update_image_links(content, image_folder_name)
 
     # Prepare the YAML front matter
     today = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -66,7 +59,28 @@ draft: false
     with open(dest_file, 'w') as file:
         file.write(updated_content)
 
-    print(f"Blog post '{document_name}' has been successfully published.")
+    print(f"Blog post '{document_name}' has been successfully published to the blog repo.")
+
+
+def _update_image_links(content, image_folder_name):
+    # Regular expression to find Obsidian image links
+    pattern = r"!\[\[(.*?)\]\]"
+
+    def replace_func(match):
+        image_name = match.group(1)
+        sanitized_image_name = _sanitize_filename(image_name)
+        # Directly construct the replacement string using the image folder and image name
+        return f'![image]({image_folder_name}/{sanitized_image_name})'
+
+    # Replace all occurrences of the pattern with the Hugo-compatible image links
+    return re.sub(pattern, replace_func, content)
+
+
+def _sanitize_filename(filename):
+    """
+    Replace spaces with underscores in the filename
+    """
+    return filename.replace(" ", "_")
 
 
 if __name__ == "__main__":
@@ -75,4 +89,4 @@ if __name__ == "__main__":
         sys.exit(1)
 
     document_name = sys.argv[1]
-    main(document_name)
+    _main(document_name)
