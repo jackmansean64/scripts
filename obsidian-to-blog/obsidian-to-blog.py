@@ -23,7 +23,7 @@ def _main(document_name):
     dest_file = os.path.join(dest_post_folder, "index.md")
     shutil.copy2(source_file, dest_file)
 
-    with open(dest_file, 'r') as file:
+    with open(dest_file, 'r', encoding="utf-8") as file:
         content = file.read()
 
     clear_directory(dest_image_folder)
@@ -51,7 +51,7 @@ draft: false
 
     updated_content = yaml_front_matter + updated_content
 
-    with open(dest_file, 'w') as file:
+    with open(dest_file, 'w', encoding="utf-8") as file:
         file.write(updated_content)
 
     print(f"Blog post '{document_name}' has been successfully published to the blog repo.")
