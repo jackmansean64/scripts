@@ -41,15 +41,8 @@ def _main(document_name):
 
     updated_content = _update_image_links(content, image_folder_name)
 
-    today = datetime.datetime.now().strftime('%Y-%m-%d')
-    yaml_front_matter = f"""---
-title: "{document_name.replace('-', ' ').title()}"
-date: {today}
-draft: false
----
-"""
-
-    updated_content = yaml_front_matter + updated_content
+    current_date = datetime.datetime.now().strftime('%Y-%m-%d')
+    updated_content = _update_front_matter(updated_content, current_date)
 
     with open(dest_file, 'w', encoding="utf-8") as file:
         file.write(updated_content)
@@ -86,6 +79,26 @@ def _sanitize_filename(filename):
     Replace spaces with underscores in the filename
     """
     return filename.replace(" ", "_")
+
+
+def _update_front_matter(content, current_date):
+    front_matter_pattern = r'^(---\s+.*?\s+---)'
+    if re.search(front_matter_pattern, content, re.DOTALL):
+        front_matter = re.search(front_matter_pattern, content, re.DOTALL).group(1)
+        lastmod_pattern = r'\nlastmod:.*?\n'
+        # Check if lastmod exists
+        if re.search(lastmod_pattern, front_matter):
+            # Update existing lastmod
+            updated_front_matter = re.sub(lastmod_pattern, f'\nlastmod: {current_date}\n', front_matter)
+        else:
+            # Add lastmod if not present
+            updated_front_matter = re.sub(r'^(---)', f'\\1\nlastmod: {current_date}', front_matter)
+        # Replace the old front matter with the new one
+        content = content.replace(front_matter, updated_front_matter)
+    else:
+        # If no front matter exists, add one
+        content = f'---\nlastmod: {current_date}\n---\n{content}'
+    return content
 
 
 if __name__ == "__main__":
