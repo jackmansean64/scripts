@@ -94,7 +94,7 @@ def _update_front_matter(content, current_date):
     front_matter_pattern = r'^(---\s+.*?\s+---)'
     if front_matter := re.search(front_matter_pattern, content, re.DOTALL):
         front_matter = front_matter.group(1)
-        updated_front_matter = re.sub(r'(\s+---)$', f'\nlastmod: {current_date}\ntoc: true\\1', front_matter)
+        updated_front_matter = re.sub(r'(\s+---)$', f'\nlastmod: {current_date}\\1', front_matter)
         content = content.replace(front_matter, updated_front_matter)
     return content
 
