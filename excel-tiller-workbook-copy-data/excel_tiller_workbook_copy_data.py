@@ -1,9 +1,9 @@
 import pandas as pd
 from openpyxl import load_workbook
 
-# File paths
-source_file = r"C:\Users\Sean Jackman\Downloads\Tiller-Foundation-Template-source.xlsx"
-destination_file = r"C:\Users\Sean Jackman\Downloads\Tiller-Foundation-Template-dest.xlsx"
+# Request file paths from the user
+source_file = input("Enter the path to the source Excel file: ").strip('"')
+destination_file = input("Enter the path to the destination Excel file: ").strip('"')
 
 # Define the columns for each table
 transactions_columns = [
