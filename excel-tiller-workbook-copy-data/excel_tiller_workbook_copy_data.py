@@ -3,8 +3,8 @@ import pandas as pd
 import xlwings as xw
 from tqdm import tqdm
 
-source_file = input("Enter the path to the source Excel file: ").strip('"')
-destination_file = input("Enter the path to the destination Excel file: ").strip('"')
+source_file = input("Enter source Excel file path or drag file here: ").strip('"')
+destination_file = input("Enter destination Excel file path or drag file here: ").strip('"')
 
 transactions_columns = [
     'Date', 'Description', 'Category', 'Amount', 'Labels', 'Notes', 'Account',
@@ -60,3 +60,4 @@ finally:
     app.quit()
 
 print("Data copied successfully!")
+input("Press any key to close the window...")
