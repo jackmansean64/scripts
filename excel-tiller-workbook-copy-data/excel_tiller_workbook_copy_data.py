@@ -3,11 +3,9 @@ import pandas as pd
 import xlwings as xw
 from tqdm import tqdm
 
-# Request file paths from the user
 source_file = input("Enter the path to the source Excel file: ").strip('"')
 destination_file = input("Enter the path to the destination Excel file: ").strip('"')
 
-# Define the columns for each table
 transactions_columns = [
     'Date', 'Description', 'Category', 'Amount', 'Labels', 'Notes', 'Account',
     'Account #', 'Institution', 'Month', 'Week', 'Transaction ID', 'Account ID',
@@ -23,7 +21,6 @@ categories_columns = [
     'Category', 'Group', 'Type', 'Hide From Reports'
 ]
 
-# Read and filter the data
 sheets = {
     "Transactions": transactions_columns,
     "Accounts": account_columns,
@@ -31,36 +28,35 @@ sheets = {
     "Categories": categories_columns
 }
 
-# Open the destination workbook using xlwings
 app = xw.App(visible=False)
-wb = xw.Book(destination_file)
+workbook = xw.Book(destination_file)
 
 try:
     for sheet_name, columns in tqdm(sheets.items(), desc="Copying sheets", unit="sheet"):
-        # Read data from the source file
-        df = pd.read_excel(source_file, sheet_name=sheet_name)
-        df = df[columns]
+        try:
+            df = pd.read_excel(source_file, sheet_name=sheet_name)
+            df = df[columns]
 
-        # Convert datetime.time objects to string representations
-        for col in df.columns:
-            if pd.api.types.is_datetime64_dtype(df[col]):
-                df[col] = df[col].astype(str)
-        df = df.map(lambda x: str(x) if isinstance(x, time) else x)
+            # Convert datetime.time objects to string representations to allow writing to Excel
+            df = df.map(lambda x: str(x) if isinstance(x, time) else x)
 
-        # Get the sheet from the destination workbook
-        ws = wb.sheets[sheet_name]
+            worksheets = workbook.sheets[sheet_name]
+            worksheets.range('A2').options(expand='table').clear_contents()
 
-        # Clear existing data (if needed)
-        ws.range('A2').options(expand='table').clear_contents()
+            for col_idx, col_name in enumerate(df.columns, start=1):
+                try:
+                    worksheets.range(2, col_idx).options(transpose=True).value = df[col_name].tolist()
+                except Exception as e:
+                    print(f"Error writing column '{col_name}' to sheet '{sheet_name}': {str(e)}")
 
-        # Write DataFrame to Excel starting at cell A2
-        ws.range('A2').options(pd.DataFrame, index=False, header=False).value = df
+        except Exception as e:
+            print(f"Error processing sheet '{sheet_name}': {str(e)}")
 
-    # Save the workbook
-    wb.save()
+    workbook.save()
+except Exception as e:
+    print(f"An error occurred: {str(e)}")
 finally:
-    # Ensure the workbook and app are closed even if an error occurs
-    wb.close()
+    workbook.close()
     app.quit()
 
 print("Data copied successfully!")
