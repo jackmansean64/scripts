@@ -28,11 +28,18 @@ sheets = {
     "Categories": categories_columns
 }
 
-app = xw.App(visible=False)
-workbook = xw.Book(destination_file)
 
 try:
-    for sheet_name, columns in tqdm(sheets.items(), desc="Copying sheets", unit="sheet"):
+    app = xw.App(visible=False)
+    workbook = xw.Book(destination_file)
+except Exception as e:
+    print(f"An error occurred: {str(e)}")
+    input("Press enter to quit...")
+    quit()
+
+is_error = False
+try:
+    for sheet_name, columns in tqdm(sheets.items(), desc="Copying sheets", unit="sheet", colour="green"):
         try:
             df = pd.read_excel(source_file, sheet_name=sheet_name)
             df = df[columns]
@@ -48,16 +55,28 @@ try:
                     worksheets.range(2, col_idx).options(transpose=True).value = df[col_name].tolist()
                 except Exception as e:
                     print(f"Error writing column '{col_name}' to sheet '{sheet_name}': {str(e)}")
+                    input("Press enter to continue...")
+                    is_error = True
 
         except Exception as e:
             print(f"Error processing sheet '{sheet_name}': {str(e)}")
+            input("Press enter to continue...")
+            is_error = True
 
-    workbook.save()
 except Exception as e:
     print(f"An error occurred: {str(e)}")
+    input("Press enter to continue...")
+    is_error = True
 finally:
+    if is_error:
+        print("Errors occurred during processing. Please check the console for details.")
+        save_input = input("Would you like to attempt to save the changes anyways? (y/n): ")
+        if save_input.lower() == 'y':
+            workbook.save()
+    else:
+        print("Data copied successfully!")
+        workbook.save()
     workbook.close()
     app.quit()
 
-print("Data copied successfully!")
 input("Press any key to close the window...")
