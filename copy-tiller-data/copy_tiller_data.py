@@ -31,7 +31,7 @@ sheets = {
 
 try:
     app = xw.App(visible=False)
-    workbook = xw.Book(destination_file)
+    dest_workbook = xw.Book(destination_file)
 except Exception as e:
     print(f"An error occurred: {str(e)}")
     input("Press enter to quit...")
@@ -47,12 +47,12 @@ try:
             # Convert datetime.time objects to string representations to allow writing to Excel
             df = df.map(lambda x: str(x) if isinstance(x, time) else x)
 
-            worksheets = workbook.sheets[sheet_name]
-            worksheets.range('A2').options(expand='table').clear_contents()
+            dest_worksheets = dest_workbook.sheets[sheet_name]
+            dest_worksheets.range('A2').options(expand='table').clear_contents()
 
             for col_idx, col_name in enumerate(df.columns, start=1):
                 try:
-                    worksheets.range(2, col_idx).options(transpose=True).value = df[col_name].tolist()
+                    dest_worksheets.range(2, col_idx).options(transpose=True).value = df[col_name].tolist()
                 except Exception as e:
                     print(f"Error writing column '{col_name}' to sheet '{sheet_name}': {str(e)}")
                     input("Press enter to continue...")
@@ -72,11 +72,11 @@ finally:
         print("Errors occurred during processing. Please check the console for details.")
         save_input = input("Would you like to attempt to save the changes anyways? (y/n): ")
         if save_input.lower() == 'y':
-            workbook.save()
+            dest_workbook.save()
     else:
         print("Data copied successfully!")
-        workbook.save()
-    workbook.close()
+        dest_workbook.save()
+    dest_workbook.close()
     app.quit()
 
-input("Press any key to close the window...")
+input("Press enter to close the window...")
