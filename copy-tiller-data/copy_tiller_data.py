@@ -39,7 +39,7 @@ except Exception as e:
 
 is_error = False
 try:
-    for sheet_name, columns in tqdm(sheets.items(), desc="Copying sheets", unit="sheet", colour="green"):
+    for sheet_name, columns in tqdm(sheets.items(), desc="Copying sheets", unit="sheet"):
         try:
             df = pd.read_excel(source_file, sheet_name=sheet_name)
             df = df[columns]
