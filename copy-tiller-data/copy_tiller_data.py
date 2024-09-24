@@ -49,13 +49,27 @@ try:
         try:
             df = pd.read_excel(source_file, sheet_name=sheet_name)
 
+            missing_columns = [col for col in columns if col not in df.columns]
+            if missing_columns:
+                print(
+                    (f"Warning: The following columns are missing in sheet '{sheet_name}': {', '.join(missing_columns)}."
+                     f" These columns are part of the Tiller Foundation Template.")
+                )
+                user_input = input("Would you like to proceed anyways? (y/n): ")
+                if user_input.lower() != "y":
+                    dest_workbook.close()
+                    app.quit()
+                    quit()
+
             # Check for optional columns and add them if they exist
             if sheet_name in optional_columns:
                 for col in optional_columns[sheet_name]:
                     if col in df.columns:
                         columns.append(col)
 
-            df = df[columns]
+            # Select only the columns that exist in the source workbook
+            existing_columns = [col for col in columns if col in df.columns]
+            df = df[existing_columns]
 
             # Convert datetime.time objects to string representations to allow writing to Excel
             df = df.map(lambda x: str(x) if isinstance(x, time) else x)
