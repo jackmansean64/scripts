@@ -7,16 +7,18 @@ source_file = input("Enter source Excel file path or drag file here: ").strip('"
 destination_file = input("Enter destination Excel file path or drag file here: ").strip('"')
 
 transactions_columns = [
-    'Date', 'Description', 'Category', 'Amount', 'Labels', 'Notes', 'Account',
+    'Date', 'Description', 'Category', 'Amount', 'Account',
     'Account #', 'Institution', 'Month', 'Week', 'Transaction ID', 'Account ID',
     'Check Number', 'Full Description', 'Date Added'
 ]
+optional_transactions_columns = ['Labels', 'Notes']
 account_columns = ['Account', 'Class Override', 'Group', 'Hide']
 balance_history_columns = [
     'Date', 'Time', 'Account', 'Account #', 'Account ID', 'Balance ID',
     'Institution', 'Balance', 'Month', 'Week', 'Type', 'Class', 'Account Status',
-    'Unique Account Identifier', 'Date Added'
+    'Date Added'
 ]
+optional_balance_history_columns = ['Unique Account Identifier']
 categories_columns = [
     'Category', 'Group', 'Type', 'Hide From Reports'
 ]
@@ -28,6 +30,10 @@ sheets = {
     "Categories": categories_columns
 }
 
+optional_columns = {
+    "Transactions": optional_transactions_columns,
+    "Balance History": optional_balance_history_columns
+}
 
 try:
     app = xw.App(visible=False)
@@ -42,6 +48,13 @@ try:
     for sheet_name, columns in tqdm(sheets.items(), desc="Copying sheets", unit="sheet"):
         try:
             df = pd.read_excel(source_file, sheet_name=sheet_name)
+
+            # Check for optional columns and add them if they exist
+            if sheet_name in optional_columns:
+                for col in optional_columns[sheet_name]:
+                    if col in df.columns:
+                        columns.append(col)
+
             df = df[columns]
 
             # Convert datetime.time objects to string representations to allow writing to Excel
