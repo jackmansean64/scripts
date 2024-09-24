@@ -109,17 +109,25 @@ try:
             dest_worksheets = dest_workbook.sheets[sheet_name]
             dest_worksheets.range("A2").options(expand="table").clear_contents()
 
-            for col_idx, col_name in enumerate(source_workbook_df.columns, start=1):
-                try:
-                    dest_worksheets.range(2, col_idx).options(transpose=True).value = (
-                        source_workbook_df[col_name].tolist()
-                    )
-                except Exception as e:
-                    print(
-                        f"Error writing column '{col_name}' to sheet '{sheet_name}': {str(e)}"
-                    )
-                    input("Press enter to continue...")
-                    is_error = True
+            dest_headers = dest_worksheets.range("A1").expand('right').value
+            is_one_column = isinstance(dest_headers, str)
+            if is_one_column:
+                dest_headers = [dest_headers]
+
+            for col_name in source_workbook_df.columns:
+                if col_name in dest_headers:
+                    excel_column_index_offset = 1
+                    dest_col_idx = dest_headers.index(col_name) + excel_column_index_offset
+                    try:
+                        dest_worksheets.range(2, dest_col_idx).options(transpose=True).value = source_workbook_df[
+                            col_name].tolist()
+                    except Exception as e:
+                        print(f"Error writing column '{col_name}' to sheet '{sheet_name}': {str(e)}")
+                        input("Press enter to continue...")
+                        is_error = True
+                else:
+                    print(f"Warning: Column '{col_name}' not found in destination sheet '{sheet_name}'.")
+
 
         except Exception as e:
             print(f"Error processing sheet '{sheet_name}': {str(e)}")
