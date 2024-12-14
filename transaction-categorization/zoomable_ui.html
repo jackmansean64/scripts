@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoomable Financial Categories UI</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #canvas {
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+            position: relative;
+            background-color: #f8f9fa;
+        }
+
+        .circle {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border: 2px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .category {
+            background-color: #6c5ce7;
+            font-size: 1.5rem; /* Increase font size for large bubbles */
+        }
+
+        .subcategory {
+            background-color: #74b9ff;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .no-text {
+            font-size: 0;
+        }
+
+        .line {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.2);
+            z-index: -1;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas"></div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const scaleStep = 0.1;
+        let scale = 1;
+        let originX = 0;
+        let originY = 0;
+        let isPanning = false;
+        let startX, startY;
+
+        const data = [
+            {
+                name: 'Food & Dining',
+                frequency: 150,
+                subcategories: [
+                    { name: 'Groceries', frequency: 70 },
+                    { name: 'Dining Out', frequency: 30 },
+                    { name: 'Snacks', frequency: 20 },
+                    { name: 'Beverages', frequency: 15 }
+                ]
+            },
+            {
+                name: 'Auto & Transport',
+                frequency: 180,
+                subcategories: [
+                    { name: 'Gas & Fuel', frequency: 50 },
+                    { name: 'Service & Parts', frequency: 30 },
+                    { name: 'Car Wash', frequency: 20 },
+                    { name: 'Parking', frequency: 25 }
+                ]
+            },
+            {
+                name: 'Entertainment',
+                frequency: 120,
+                subcategories: [
+                    { name: 'Movies', frequency: 40 },
+                    { name: 'Games', frequency: 20 },
+                    { name: 'Concerts', frequency: 30 },
+                    { name: 'Streaming', frequency: 10 }
+                ]
+            }
+        ];
+
+        function createCircle(category, x, y, scaleFactor, isZoomedIn) {
+            const circle = document.createElement('div');
+            const size = (category.subcategories ? category.frequency * scaleFactor * 1.5 : category.frequency * scaleFactor);
+            circle.className = `circle ${category.subcategories ? 'category' : 'subcategory'} ${!isZoomedIn && !category.subcategories ? 'no-text' : ''}`;
+            circle.style.width = `${size}px`;
+            circle.style.height = `${size}px`;
+            circle.style.left = `${x - size / 2}px`;
+            circle.style.top = `${y - size / 2}px`;
+            circle.textContent = isZoomedIn || category.subcategories ? category.name : '';
+            canvas.appendChild(circle);
+            return { x, y, size };
+        }
+
+        function createLine(x1, y1, x2, y2) {
+            const line = document.createElement('div');
+            const length = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+            const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
+            line.className = 'line';
+            line.style.width = `${length}px`;
+            line.style.height = '2px';
+            line.style.transform = `rotate(${angle}deg)`;
+            line.style.left = `${x1}px`;
+            line.style.top = `${y1}px`;
+            canvas.appendChild(line);
+        }
+
+        function render() {
+            canvas.innerHTML = '';
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            const radius = 250 * scale; // Distance between large circles
+            const angleStep = (2 * Math.PI) / data.length;
+
+            data.forEach((category, index) => {
+                const categoryX = centerX + radius * Math.cos(index * angleStep);
+                const categoryY = centerY + radius * Math.sin(index * angleStep);
+
+                const { x, y, size } = createCircle(category, categoryX, categoryY, scale, true);
+
+                const isZoomedIn = scale > 1.2;
+                const subRadius = size / 2 + 50 * scale;
+                const subAngleStep = (2 * Math.PI) / category.subcategories.length;
+
+                category.subcategories.forEach((subcategory, subIndex) => {
+                    const subAngle = subIndex * subAngleStep;
+                    const subX = x + subRadius * Math.cos(subAngle);
+                    const subY = y + subRadius * Math.sin(subAngle);
+
+                    createLine(x, y, subX, subY);
+                    createCircle(subcategory, subX, subY, scale, isZoomedIn);
+                });
+            });
+        }
+
+        function zoom(event) {
+            event.preventDefault();
+            const delta = event.deltaY < 0 ? scaleStep : -scaleStep;
+            scale = Math.min(Math.max(scale + delta, 0.5), 3);
+            render();
+        }
+
+        function startPan(event) {
+            isPanning = true;
+            startX = event.clientX - originX;
+            startY = event.clientY - originY;
+            canvas.style.cursor = 'grabbing';
+        }
+
+        function pan(event) {
+            if (!isPanning) return;
+            originX = event.clientX - startX;
+            originY = event.clientY - startY;
+            canvas.style.transform = `translate(${originX}px, ${originY}px)`;
+        }
+
+        function endPan() {
+            isPanning = false;
+            canvas.style.cursor = 'grab';
+        }
+
+        canvas.addEventListener('wheel', zoom);
+        canvas.addEventListener('mousedown', startPan);
+        canvas.addEventListener('mousemove', pan);
+        canvas.addEventListener('mouseup', endPan);
+        canvas.addEventListener('mouseleave', endPan);
+
+        render();
+    </script>
+</body>
+</html>
