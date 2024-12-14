@@ -26,19 +26,10 @@
             justify-content: center;
             font-size: 0.8rem;
             font-weight: bold;
-            color: white;
+            color: white; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
             text-align: center;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             border: 2px solid rgba(0, 0, 0, 0.1);
-        }
-
-        .category {
-            background-color: #6c5ce7;
-            font-size: 1.5rem; /* Increase font size for large bubbles */
-        }
-
-        .subcategory {
-            background-color: #74b9ff;
         }
 
         .hidden {
@@ -71,18 +62,20 @@
         const data = [
             {
                 name: 'Food & Dining',
-                frequency: 120,
+                frequency: 125,
+                color: '#e74c3c',
                 subcategories: [
                     { name: 'Groceries', frequency: 70 },
                     { name: 'Dining Out', frequency: 30 },
-                    { name: 'Snacks', frequency: 20 },
+                    { name: 'Snacks', frequency: 20 }
                 ]
             },
             {
                 name: 'Auto & Transport',
-                frequency: 175,
+                frequency: 155,
+                color: '#3498db',
                 subcategories: [
-                    { name: 'Gas & Fuel', frequency: 100 },
+                    { name: 'Gas & Fuel', frequency: 80 },
                     { name: 'Service & Parts', frequency: 30 },
                     { name: 'Car Wash', frequency: 20 },
                     { name: 'Parking', frequency: 25 }
@@ -91,6 +84,7 @@
             {
                 name: 'Entertainment',
                 frequency: 120,
+                color: '#2ecc71',
                 subcategories: [
                     { name: 'Movies', frequency: 40 },
                     { name: 'Games', frequency: 20 },
@@ -101,7 +95,7 @@
             }
         ];
 
-        function createCircle(category, x, y, scaleFactor, isZoomedIn) {
+        function createCircle(category, x, y, scaleFactor, isZoomedIn, parentColor) {
             const circle = document.createElement('div');
             const size = (category.subcategories ? category.frequency * scaleFactor : category.frequency * scaleFactor);
             circle.className = `circle ${category.subcategories ? 'category' : 'subcategory'} ${!isZoomedIn && !category.subcategories ? 'no-text' : ''}`;
@@ -109,6 +103,7 @@
             circle.style.height = `${size}px`;
             circle.style.left = `${x - size / 2}px`;
             circle.style.top = `${y - size / 2}px`;
+            circle.style.backgroundColor = category.subcategories ? category.color : lightenColor(parentColor, 40);
             circle.textContent = isZoomedIn || category.subcategories ? category.name : '';
             canvas.appendChild(circle);
             return { x, y, size };
@@ -127,6 +122,18 @@
             canvas.appendChild(line);
         }
 
+        function lightenColor(color, percent) {
+            const num = parseInt(color.replace('#', ''), 16),
+                amt = Math.round(2.55 * percent),
+                R = (num >> 16) + amt,
+                G = ((num >> 8) & 0x00ff) + amt,
+                B = (num & 0x0000ff) + amt;
+
+            return `#${(0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 + (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 + (B < 255 ? B < 1 ? 0 : B : 255))
+                .toString(16)
+                .slice(1)}`;
+        }
+
         function render() {
             canvas.innerHTML = '';
             const centerX = window.innerWidth / 2;
@@ -138,7 +145,7 @@
                 const categoryX = centerX + radius * Math.cos(index * angleStep);
                 const categoryY = centerY + radius * Math.sin(index * angleStep);
 
-                const { x, y, size } = createCircle(category, categoryX, categoryY, scale, true);
+                const { x, y, size } = createCircle(category, categoryX, categoryY, scale, true, category.color);
 
                 const isZoomedIn = scale > 1.2;
                 const subRadius = size / 2 + 50 * scale;
@@ -150,7 +157,7 @@
                     const subY = y + subRadius * Math.sin(subAngle);
 
                     createLine(x, y, subX, subY);
-                    createCircle(subcategory, subX, subY, scale, isZoomedIn);
+                    createCircle(subcategory, subX, subY, scale, isZoomedIn, category.color);
                 });
             });
         }
