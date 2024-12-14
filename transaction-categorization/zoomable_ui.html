@@ -103,7 +103,7 @@
 
         function createCircle(category, x, y, scaleFactor, isZoomedIn) {
             const circle = document.createElement('div');
-            const size = (category.subcategories ? category.frequency * scaleFactor * 1.5 : category.frequency * scaleFactor);
+            const size = (category.subcategories ? category.frequency * scaleFactor : category.frequency * scaleFactor);
             circle.className = `circle ${category.subcategories ? 'category' : 'subcategory'} ${!isZoomedIn && !category.subcategories ? 'no-text' : ''}`;
             circle.style.width = `${size}px`;
             circle.style.height = `${size}px`;
