@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Flask-SocketIO Test</title>
+  <!-- Load the Socket.IO client from a CDN -->
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+</head>
+<body>
+  <h1>WebSocket Test</h1>
+
+  <script>
+    // Replace this with your EC2 public IP or DNS (and port).
+	const socket = io("http://localhost:8000");
+
+    socket.on('connect', () => {
+      console.log('Connected to server');
+      // Test sending a message
+      socket.send("Hello from the browser");
+    });
+
+    socket.on('message', (data) => {
+      console.log('Message from server:', data);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Disconnected from server');
+    });
+  </script>
+</body>
+</html>
