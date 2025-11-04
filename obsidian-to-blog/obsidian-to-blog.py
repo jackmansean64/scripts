@@ -45,6 +45,7 @@ def _main(document_name):
             print(f"Warning: Image {image_name} not found in Attachments.")
 
     updated_content = _update_image_links(content, image_folder_name)
+    updated_content = _convert_internal_header_refs(updated_content)
 
     current_date = datetime.datetime.now().strftime('%Y-%m-%d')
     updated_content = _update_front_matter(updated_content, current_date)
@@ -93,10 +94,41 @@ def _sanitize_filename(filename):
 def _update_front_matter(content, current_date):
     front_matter_pattern = r'^(---\s+.*?\s+---)'
     if front_matter := re.search(front_matter_pattern, content, re.DOTALL):
-        front_matter = front_matter.group(1)
-        updated_front_matter = re.sub(r'(\s+---)$', f'\nlastmod: {current_date}\\1', front_matter)
-        content = content.replace(front_matter, updated_front_matter)
+        fm = front_matter.group(1)
+        updated_fm = re.sub(r'(\s+---)$', f'\nlastmod: {current_date}\\1', fm)
+        content = content.replace(fm, updated_fm)
     return content
+
+
+def _convert_internal_header_refs(content: str) -> str:
+    """
+    Convert Obsidian-style internal header links [[#This Header]]
+    into Markdown links [This Header](#this-header).
+    """
+    pattern = r"\[\[#([^\]]+)\]\]"
+
+    def repl(m):
+        header_text = m.group(1).strip()
+        slug = _slugify_header(header_text)
+        return f"[{header_text}](#{slug})"
+
+    return re.sub(pattern, repl, content)
+
+
+def _slugify_header(text: str) -> str:
+    """
+    Create an anchor slug similar to GitHub/Hugo style:
+    - lowercase
+    - remove punctuation except spaces and hyphens
+    - collapse whitespace to hyphens
+    - collapse repeated hyphens
+    - trim leading/trailing hyphens
+    """
+    s = text.strip().lower()
+    s = re.sub(r"[^\w\s-]", "", s)      # drop punctuation
+    s = re.sub(r"\s+", "-", s)          # spaces -> hyphens
+    s = re.sub(r"-{2,}", "-", s).strip("-")
+    return s
 
 
 if __name__ == "__main__":
