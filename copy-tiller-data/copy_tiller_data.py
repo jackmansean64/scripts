@@ -114,6 +114,15 @@ try:
             if is_one_column:
                 dest_headers = [dest_headers]
 
+            # Map Labels and Tags since they're effectively the same thing
+            if sheet_name == "Transactions":
+                if "Labels" in source_workbook_df.columns and "Labels" not in dest_headers and "Tags" in dest_headers:
+                    source_workbook_df.rename(columns={"Labels": "Tags"}, inplace=True)
+                    print(f"\nInfo: Mapping 'Labels' column to 'Tags' column in destination sheet.")
+                elif "Tags" in source_workbook_df.columns and "Tags" not in dest_headers and "Labels" in dest_headers:
+                    source_workbook_df.rename(columns={"Tags": "Labels"}, inplace=True)
+                    print(f"\nInfo: Mapping 'Tags' column to 'Labels' column in destination sheet.")
+
             for col_name in source_workbook_df.columns:
                 if col_name in dest_headers:
                     excel_column_index_offset = 1
