@@ -24,7 +24,7 @@ transactions_columns = [
     "Full Description",
     "Date Added",
 ]
-optional_transactions_columns = ["Labels", "Notes"]
+optional_transactions_columns = ["Labels", "Notes", "Tags"]
 account_columns = ["Account", "Class Override", "Group", "Hide"]
 balance_history_columns = [
     "Date",
