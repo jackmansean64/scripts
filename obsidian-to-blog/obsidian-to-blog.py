@@ -13,12 +13,11 @@ def _main(document_name):
     destination_folder = os.getenv('BLOG_DESTINATION_FOLDER')
     image_folder_name = "images"
 
-    source_file = find_file(f"{document_name}.md", source_folder)
+    source_file = find_file_by_name_or_alias(document_name, source_folder)
     if not source_file:
-        print(f"Error: Markdown file '{document_name}.md' not found.")
+        print(f"Error: Markdown file with name or alias '{document_name}' not found.")
         return
 
-    # Directory setup for destination
     dest_post_folder = os.path.join(destination_folder, document_name)
     dest_image_folder = os.path.join(dest_post_folder, image_folder_name)
 
@@ -61,6 +60,59 @@ def find_file(filename, root_folder):
         for file in files:
             if file == filename:
                 return os.path.join(subdir, file)
+    return None
+
+
+def _extract_aliases_from_front_matter(file_path):
+    """
+    Extract aliases from the YAML front matter of a markdown file.
+    Returns a list of aliases, or empty list if none found.
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        fm_match = re.match(r'^---\s*\n(.*?)\n---', content, re.DOTALL)
+        if not fm_match:
+            return []
+
+        front_matter = fm_match.group(1)
+
+        aliases = []
+        alias_match = re.search(r'^aliases:\s*\n((?:  - .+\n?)+)', front_matter, re.MULTILINE)
+        if alias_match:
+            alias_lines = alias_match.group(1).strip().split('\n')
+            aliases = [line.strip().lstrip('- ').strip() for line in alias_lines]
+        else:
+            single_match = re.search(r'^aliases:\s*(.+)$', front_matter, re.MULTILINE)
+            if single_match:
+                aliases = [single_match.group(1).strip()]
+
+        return aliases
+    except Exception:
+        return []
+
+
+def find_file_by_name_or_alias(document_name, root_folder):
+    """
+    Find a markdown file by its filename (without .md) or by matching an alias
+    in its front matter.
+    """
+    filename = f"{document_name}.md"
+
+    for subdir, dirs, files in os.walk(root_folder):
+        for file in files:
+            if file == filename:
+                return os.path.join(subdir, file)
+
+    for subdir, dirs, files in os.walk(root_folder):
+        for file in files:
+            if file.endswith('.md'):
+                file_path = os.path.join(subdir, file)
+                aliases = _extract_aliases_from_front_matter(file_path)
+                if document_name in aliases:
+                    return file_path
+
     return None
 
 
