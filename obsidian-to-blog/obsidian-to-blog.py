@@ -18,7 +18,8 @@ def _main(document_name):
         print(f"Error: Markdown file with name or alias '{document_name}' not found.")
         return
 
-    dest_post_folder = os.path.join(destination_folder, document_name)
+    folder_name = _determine_destination_folder_name(source_file, document_name, destination_folder)
+    dest_post_folder = os.path.join(destination_folder, folder_name)
     dest_image_folder = os.path.join(dest_post_folder, image_folder_name)
 
     os.makedirs(dest_post_folder, exist_ok=True)
@@ -52,7 +53,7 @@ def _main(document_name):
     with open(dest_file, 'w', encoding="utf-8") as file:
         file.write(updated_content)
 
-    print(f"Blog post '{document_name}' has been successfully published to the blog repo.")
+    print(f"Blog post '{folder_name}' has been successfully published to the blog repo.")
 
 
 def find_file(filename, root_folder):
@@ -91,6 +92,47 @@ def _extract_aliases_from_front_matter(file_path):
         return aliases
     except Exception:
         return []
+
+
+def _extract_title_from_front_matter(file_path):
+    """
+    Extract the title from the YAML front matter of a markdown file.
+    Returns the title string or None if not found.
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        fm_match = re.match(r'^---\s*\n(.*?)\n---', content, re.DOTALL)
+        if not fm_match:
+            return None
+
+        front_matter = fm_match.group(1)
+
+        title_match = re.search(r'^title:\s*(.+)$', front_matter, re.MULTILINE)
+        if title_match:
+            return title_match.group(1).strip()
+
+        return None
+    except Exception:
+        return None
+
+
+def _determine_destination_folder_name(source_file, document_name, destination_folder):
+    """
+    Determine the destination folder name by:
+    1. Checking if a folder with the file's title already exists
+    2. If yes, use that title
+    3. If no, use the document_name (which could be an alias)
+    """
+    title = _extract_title_from_front_matter(source_file)
+
+    if title:
+        title_folder = os.path.join(destination_folder, title)
+        if os.path.exists(title_folder) and os.path.isdir(title_folder):
+            return title
+
+    return document_name
 
 
 def find_file_by_name_or_alias(document_name, root_folder):
