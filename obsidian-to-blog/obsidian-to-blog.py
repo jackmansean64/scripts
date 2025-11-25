@@ -189,7 +189,13 @@ def _update_front_matter(content, current_date):
     front_matter_pattern = r'^(---\s+.*?\s+---)'
     if front_matter := re.search(front_matter_pattern, content, re.DOTALL):
         fm = front_matter.group(1)
-        updated_fm = re.sub(r'(\s+---)$', f'\nlastmod: {current_date}\\1', fm)
+
+        # Remove quotes from boolean values (true/false)
+        updated_fm = re.sub(r':\s*"(true|false)"', r': \1', fm, flags=re.IGNORECASE)
+
+        # Add lastmod field
+        updated_fm = re.sub(r'(\s+---)$', f'\nlastmod: {current_date}\\1', updated_fm)
+
         content = content.replace(fm, updated_fm)
     return content
 
