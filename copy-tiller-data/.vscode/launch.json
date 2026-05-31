@@ -1,0 +1,38 @@
+{
+  // Open the "copy-tiller-data" folder in VS Code so ${workspaceFolder} points
+  // here. The scripts prompt for file paths via input() and let you drag files
+  // into the terminal, so every config uses the integrated terminal.
+  //
+  // First time only: install the dependencies into your selected interpreter:
+  //   pip install -r requirements.txt
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Remove duplicates",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/remove_duplicates.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    },
+    {
+      "name": "Copy Tiller data",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/copy_tiller_data.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    },
+    {
+      "name": "Run current file",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${fileDirname}",
+      "justMyCode": true
+    }
+  ]
+}
