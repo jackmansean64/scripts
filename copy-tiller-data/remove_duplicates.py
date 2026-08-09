@@ -10,6 +10,13 @@ This tool finds those duplicates and deletes the uncategorised copy, keeping the
 one you've already categorised. It prints a compact report of everything it
 removes and makes a timestamped backup of the workbook before saving.
 
+It also prints a second, advisory list: uncategorised rows sitting at the top of
+the sheet but dated well *before* your newest categorised transaction. Those are
+very likely re-adds whose twin didn't match exactly (edited description, shifted
+post date, renamed account). Because that's a heuristic rather than a certain
+match, the list is confirmed separately from the exact matches — you can delete
+one, both, or neither.
+
 To create exe:
     pyinstaller -F remove_duplicates.py
 """
@@ -17,7 +24,7 @@ To create exe:
 import math
 import os
 import shutil
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pandas as pd
 import xlwings as xw
@@ -39,6 +46,11 @@ ACCOUNT_COLUMN = "Account"
 # to the CSV log regardless.
 DISPLAY_ROW_CAP = 500
 
+# Grace period for the "possible duplicate" heuristic. A legitimate new
+# transaction can post a few days behind the newest thing you've categorised, so
+# only rows dated more than this far back are treated as suspicious.
+SUSPECT_TOLERANCE_DAYS = 7
+
 
 def clean_path(raw):
     """Normalise a path typed or dragged into the console.
@@ -57,6 +69,15 @@ def clean_path(raw):
             # PowerShell escapes embedded single quotes by doubling them.
             path = path.replace("''", "'")
     return path
+
+
+def row_word(items):
+    return "row" if len(items) == 1 else "rows"
+
+
+def ask_yes_no(prompt):
+    """Ask a yes/no question. Anything other than an explicit yes means no."""
+    return input(prompt).strip().lower() in ("y", "yes")
 
 
 def is_blank(value):
@@ -199,6 +220,81 @@ def find_duplicates(data_frame, key_columns):
     return sorted(delete_positions)
 
 
+def parse_date(value):
+    """Best-effort conversion of a cell into a ``date`` for ordering comparisons.
+
+    Returns None when the cell is blank or can't be read as a date, so callers
+    can skip it rather than guess.
+    """
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if is_blank(value):
+        return None
+    try:
+        return pd.to_datetime(value).date()
+    except Exception:
+        return None
+
+
+def find_suspected_duplicates(data_frame, delete_positions):
+    """Flag uncategorised rows stranded at the top of the sheet with old dates.
+
+    Tiller sorts the Transactions sheet newest-first and drops re-filled rows in
+    at the top. A genuinely new transaction you simply haven't categorised yet is
+    therefore dated on or after everything you *have* categorised. An
+    uncategorised row sitting in that top block but dated well *before* your
+    categorised transactions is almost always a re-add of an old transaction
+    whose twin slipped past the exact-match check — an edited description, a
+    shifted post date, a renamed account, a re-rounded amount.
+
+    "Well before" allows SUSPECT_TOLERANCE_DAYS of slack: a legitimate new
+    transaction can post a few days behind the newest thing you've categorised,
+    and shouldn't be flagged for it.
+
+    The match is a heuristic, so these are always confirmed separately from the
+    exact matches rather than folded in with them.
+
+    Returns (positions, cutoff_date).
+    """
+    if DATE_COLUMN not in data_frame.columns:
+        return [], None
+
+    # The unbroken run of uncategorised rows at the very top of the sheet.
+    leading = []
+    for position in range(len(data_frame)):
+        if not is_blank(data_frame.iloc[position][CATEGORY_COLUMN]):
+            break
+        leading.append(position)
+    if not leading or len(leading) == len(data_frame):
+        return [], None
+
+    newest_categorised = None
+    for position in range(len(leading), len(data_frame)):
+        row = data_frame.iloc[position]
+        if is_blank(row[CATEGORY_COLUMN]):
+            continue
+        row_date = parse_date(row[DATE_COLUMN])
+        if row_date is not None and (
+            newest_categorised is None or row_date > newest_categorised
+        ):
+            newest_categorised = row_date
+    if newest_categorised is None:
+        return [], None
+
+    cutoff = newest_categorised - timedelta(days=SUSPECT_TOLERANCE_DAYS)
+    already_deleting = set(delete_positions)
+    suspects = []
+    for position in leading:
+        if position in already_deleting:
+            continue
+        row_date = parse_date(data_frame.iloc[position][DATE_COLUMN])
+        if row_date is not None and row_date < cutoff:
+            suspects.append(position)
+    return suspects, cutoff
+
+
 def format_date(value):
     if isinstance(value, datetime):
         return value.date().isoformat()
@@ -262,6 +358,27 @@ def print_report(deleted_frame, total_rows, description_column):
             print(compact_line(record, description_column))
 
 
+def print_suspects(suspect_frame, cutoff, description_column):
+    """Print the heuristic 'these look like duplicates too' list."""
+    if suspect_frame.empty:
+        return
+
+    print(f"\n--- Possible duplicates ({len(suspect_frame):,}) ---")
+    print(f"Uncategorised rows at the top of the sheet dated before {cutoff.isoformat()}")
+    print(f"(more than {SUSPECT_TOLERANCE_DAYS} days behind your newest categorised transaction).")
+    print("Tiller adds re-filled rows at the top, so an old date up here usually")
+    print("means a re-add whose twin didn't match exactly (edited description,")
+    print("shifted date, renamed account).")
+    print("Check these over - you'll be asked separately whether to delete them.")
+
+    ordered = suspect_frame.sort_values(by=DATE_COLUMN, key=lambda s: s.map(format_date))
+    records = ordered.to_dict("records")
+    for record in records[:DISPLAY_ROW_CAP]:
+        print(compact_line(record, description_column))
+    if len(records) > DISPLAY_ROW_CAP:
+        print(f"  ... and {len(records) - DISPLAY_ROW_CAP:,} more.")
+
+
 def write_back(sheet, kept_frame):
     """Replace the Transactions data rows with the kept rows."""
     header_width = len(kept_frame.columns)
@@ -316,19 +433,45 @@ def main():
 
         print_report(deleted_frame, len(data_frame), description_column)
 
-        if not delete_positions:
-            print("\nNo uncategorised duplicates found — leaving the workbook unchanged.")
+        suspect_positions, suspect_cutoff = find_suspected_duplicates(
+            data_frame, delete_positions
+        )
+        print_suspects(
+            data_frame.iloc[suspect_positions], suspect_cutoff, description_column
+        )
+
+        if not delete_positions and not suspect_positions:
+            print("\nNo duplicates found — leaving the workbook unchanged.")
+            return
+
+        # Each list is confirmed separately: the exact matches are safe, the
+        # possible duplicates are a heuristic the user may want to skip.
+        remove_positions = []
+        if delete_positions:
+            if ask_yes_no(
+                f"\nDelete the {len(delete_positions):,} exact-match duplicate"
+                f" {row_word(delete_positions)} listed above? (y/n): "
+            ):
+                remove_positions.extend(delete_positions)
+            else:
+                print("Leaving the exact-match duplicates in place.")
+        if suspect_positions:
+            also = "Also delete" if remove_positions else "Delete"
+            if ask_yes_no(
+                f"\n{also} the {len(suspect_positions):,} possible duplicate"
+                f" {row_word(suspect_positions)} listed above? (y/n): "
+            ):
+                remove_positions.extend(suspect_positions)
+            else:
+                print("Leaving the possible duplicates in place.")
+
+        remove_positions = sorted(set(remove_positions))
+        if not remove_positions:
+            print("\nNothing selected for deletion — no changes saved.")
             return
 
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         base_path = os.path.splitext(workbook_path)[0]
-
-        confirm = input(
-            f"\nDelete these {len(delete_positions):,} uncategorised duplicate rows and save? (y/n): "
-        )
-        if confirm.strip().lower() != "y":
-            print("No changes saved.")
-            return
 
         backup_path = f"{base_path}.backup-{timestamp}.xlsx"
         try:
@@ -336,14 +479,21 @@ def main():
             print(f"Backup of the original saved to:\n  {backup_path}")
         except Exception as error:
             print(f"Warning: couldn't create a backup ({error}).")
-            if input("Proceed without a backup? (y/n): ").strip().lower() != "y":
+            if not ask_yes_no("Proceed without a backup? (y/n): "):
                 print("No changes saved.")
                 return
 
-        kept_frame = data_frame.drop(index=data_frame.index[delete_positions])
+        kept_frame = data_frame.drop(index=data_frame.index[remove_positions])
         write_back(sheet, kept_frame)
         workbook.save()
-        print(f"Done. Removed {len(delete_positions):,} duplicate rows.")
+
+        removed_exact = len(set(remove_positions) & set(delete_positions))
+        removed_suspect = len(set(remove_positions) & set(suspect_positions))
+        print(f"Done. Removed {len(remove_positions):,} rows.")
+        if removed_exact and removed_suspect:
+            print(
+                f"  {removed_exact:,} exact-match, {removed_suspect:,} possible duplicates."
+            )
 
     except Exception as error:
         print(f"An error occurred: {error}")
