@@ -139,7 +139,7 @@
     border-radius: 20px 20px 0 0; pointer-events: none;
   }
   .front-zone span {
-    position: absolute; left: 14px; bottom: 7px;
+    position: absolute; left: 50%; transform: translateX(-50%); bottom: 7px;
     font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
     color: rgba(63,106,216,.65);
   }
@@ -303,6 +303,28 @@
   .legend .sw { display: inline-block; width: 26px; height: 16px; border-radius: 5px; vertical-align: middle; margin-right: 8px; border: 1.5px solid; }
 
   /* ---------- Toast ---------- */
+  /* ---------- Menu & dialog ---------- */
+  .menu {
+    position: fixed; top: 54px; right: 12px; z-index: 150; min-width: 220px;
+    background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 6px;
+    box-shadow: 0 14px 34px rgba(40,30,10,.16); display: flex; flex-direction: column;
+  }
+  .menu[hidden] { display: none; }
+  .menu button {
+    border: 0; background: transparent; text-align: left; padding: 8px 10px; border-radius: 8px;
+    font-size: 13.5px; font-weight: 650; cursor: pointer;
+  }
+  .menu button:hover { background: #f6f1e6; }
+  .menu button.danger { color: var(--bad); }
+  .menu .sep { height: 1px; background: var(--line); margin: 5px 4px; }
+  .dialog-backdrop { position: fixed; inset: 0; background: rgba(43,42,51,.35); z-index: 160; display: grid; place-items: center; }
+  .dialog-backdrop[hidden] { display: none; }
+  .dialog { background: var(--panel); border-radius: 16px; padding: 18px; width: min(460px, 92vw); box-shadow: 0 20px 50px rgba(0,0,0,.25); }
+  .dialog h3 { margin: 0 0 4px; font-size: 17px; }
+  .dialog p { margin: 0 0 10px; color: var(--muted); font-size: 13.5px; }
+  .dialog textarea { width: 100%; height: 160px; font: 12px ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-radius: 10px; padding: 10px; resize: vertical; }
+  .dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
   .toast {
     position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px);
     background: #2b2a33; color: #fff; padding: 10px 16px; border-radius: 12px;
@@ -371,6 +393,29 @@
 
   <aside class="inspector" id="inspector"></aside>
 </main>
+
+<div class="menu" id="menu" hidden>
+  <button data-menu="copy">Copy plan to clipboard</button>
+  <button data-menu="paste">Paste a copied plan…</button>
+  <button data-menu="download">Download plan file</button>
+  <button data-menu="load">Open plan file…</button>
+  <button data-menu="print">Print seating chart</button>
+  <div class="sep"></div>
+  <button data-menu="sample">Load sample class</button>
+  <button data-menu="empty" class="danger">Start an empty class</button>
+</div>
+
+<div class="dialog-backdrop" id="pasteDialog" hidden>
+  <div class="dialog">
+    <h3>Paste a seating plan</h3>
+    <p>Paste text you copied earlier with “Copy plan to clipboard”.</p>
+    <textarea spellcheck="false" placeholder='{"students": [...], "groups": [...]}'></textarea>
+    <div class="actions">
+      <button class="btn ghost" data-dialog="cancel">Cancel</button>
+      <button class="btn primary" data-dialog="ok">Load plan</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 <input type="file" id="importFile" accept="application/json" hidden>
@@ -1175,28 +1220,54 @@ document.addEventListener('keydown', e => {
 });
 
 // "More" menu: save / load / print / reset
-document.getElementById('moreBtn').addEventListener('click', () => {
-  const choice = prompt('Type a number:\n1 — Download plan (JSON)\n2 — Load plan from file\n3 — Print seating chart\n4 — Reset to sample class\n5 — Start an empty class');
-  if (choice === '1') {
-    const { selected, ...rest } = state;
-    const blob = new Blob([JSON.stringify(rest, null, 2)], { type: 'application/json' });
+// Inside a sandboxed frame (e.g. a hosted preview) downloads and printing are blocked, so hide them there.
+const embedded = (() => { try { return window.self !== window.top; } catch { return true; } })();
+if (embedded) document.querySelectorAll('[data-menu="download"], [data-menu="print"]').forEach(el => el.remove());
+const menu = document.getElementById('menu');
+const planJSON = () => { const { selected, ...rest } = state; return JSON.stringify(rest, null, 2); };
+document.getElementById('moreBtn').addEventListener('click', e => { e.stopPropagation(); menu.hidden = !menu.hidden; });
+document.addEventListener('click', e => { if (!menu.hidden && !e.target.closest('#menu')) menu.hidden = true; });
+menu.addEventListener('click', async e => {
+  const item = e.target.closest('[data-menu]');
+  if (!item) return;
+  menu.hidden = true;
+  const choice = item.dataset.menu;
+  if (choice === 'copy') {
+    try { await navigator.clipboard.writeText(planJSON()); toast('Plan copied — paste it somewhere safe to keep it', 'ok'); }
+    catch { toast("Couldn't copy to the clipboard here", 'bad'); }
+  } else if (choice === 'download') {
+    const blob = new Blob([planJSON()], { type: 'application/json' });
     const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: (state.className || 'seating-plan').replace(/[^\w\- ]+/g, '') + '.json' });
     a.click(); URL.revokeObjectURL(a.href);
-  } else if (choice === '2') document.getElementById('importFile').click();
-  else if (choice === '3') { state.selected = null; render(); setTimeout(() => window.print(), 50); }
-  else if (choice === '4') { pushHistory(); state = sampleState(); render({ animate: true }); }
-  else if (choice === '5') { pushHistory(); state = { className: 'My class', students: [], groups: [], seats: {}, selected: null }; render(); }
+  } else if (choice === 'load') document.getElementById('importFile').click();
+  else if (choice === 'paste') { menu.hidden = true; openPasteDialog(); }
+  else if (choice === 'print') { state.selected = null; render(); setTimeout(() => window.print(), 50); }
+  else if (choice === 'sample') { pushHistory(); state = sampleState(); render({ animate: true }); toast('Sample class loaded — Undo to go back'); }
+  else if (choice === 'empty') { pushHistory(); state = { className: 'My class', students: [], groups: [], seats: {}, selected: null }; render(); toast('Started an empty class — Undo to go back'); }
+});
+
+function loadPlan(data) {
+  if (!data || !Array.isArray(data.students) || !Array.isArray(data.groups)) throw new Error('not a plan');
+  pushHistory();
+  state = { seats: {}, selected: null, ...data };
+  render({ animate: true });
+  toast('Plan loaded', 'ok');
+}
+const pasteDialog = document.getElementById('pasteDialog');
+function openPasteDialog() { pasteDialog.hidden = false; const ta = pasteDialog.querySelector('textarea'); ta.value = ''; ta.focus(); }
+pasteDialog.addEventListener('click', e => {
+  const act = e.target.closest('[data-dialog]')?.dataset.dialog;
+  if (e.target === pasteDialog || act === 'cancel') pasteDialog.hidden = true;
+  if (act === 'ok') {
+    try { loadPlan(JSON.parse(pasteDialog.querySelector('textarea').value)); pasteDialog.hidden = true; }
+    catch { toast("That text isn't a copied seating plan", 'bad'); }
+  }
 });
 document.getElementById('importFile').addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
   try {
-    const data = JSON.parse(await file.text());
-    if (!data.students || !data.groups) throw new Error();
-    pushHistory();
-    state = { seats: {}, selected: null, ...data };
-    render();
-    toast('Plan loaded', 'ok');
+    loadPlan(JSON.parse(await file.text()));
   } catch { toast('That file is not a seating plan', 'bad'); }
   e.target.value = '';
 });
