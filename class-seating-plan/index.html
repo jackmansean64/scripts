@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seating Planner</title>
+<style>
+  :root {
+    --bg: #f4efe4;
+    --panel: #fffdf8;
+    --ink: #2b2a33;
+    --muted: #7c7787;
+    --line: #e4dccb;
+    --accent: #3f6ad8;
+    --accent-dark: #2c4fae;
+    --ok: #2f9e6a;
+    --ok-bg: #e3f5ec;
+    --bad: #d64545;
+    --bad-bg: #fde9e7;
+    --table: #f4e4c4;
+    --table-edge: #d8bd88;
+    --desk: #e5ecf8;
+    --desk-edge: #b5c5e0;
+    --seat-w: 140px;
+    --seat-h: 50px;
+    font-family: ui-rounded, "Nunito", "Segoe UI Rounded", "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    display: grid;
+    grid-template-rows: 60px 1fr;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; color: inherit; }
+
+  /* ---------- Top bar ---------- */
+  header.top {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    z-index: 5;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 17px; }
+  .logo {
+    width: 34px; height: 34px; border-radius: 10px; background: var(--accent);
+    display: grid; place-items: center; color: #fff; box-shadow: 0 2px 0 var(--accent-dark);
+  }
+  .classname {
+    font: inherit; font-weight: 650; font-size: 15px; color: var(--muted);
+    border: 1px solid transparent; background: transparent; border-radius: 8px;
+    padding: 5px 8px; width: 170px;
+  }
+  .classname:hover, .classname:focus { border-color: var(--line); background: #fff; outline: none; color: var(--ink); }
+  .spacer { flex: 1; }
+  .btn {
+    font-size: 13.5px; font-weight: 700;
+    border: 1px solid var(--line); background: #fff; border-radius: 10px;
+    padding: 7px 12px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    transition: background .12s, border-color .12s, transform .08s;
+  }
+  .btn:hover { background: #fffaf0; border-color: #cfc5b0; }
+  .btn:active { transform: translateY(1px); }
+  .btn svg { width: 16px; height: 16px; flex: none; }
+  .btn.primary {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+    box-shadow: 0 2px 0 var(--accent-dark); padding: 8px 16px; font-size: 14px;
+  }
+  .btn.primary:hover { background: #4a75e3; }
+  .btn.ghost { background: transparent; border-color: transparent; }
+  .btn.ghost:hover { background: #f3eee3; }
+  .btn.danger { color: var(--bad); }
+  .btn-group { display: flex; gap: 2px; padding: 3px; background: #f1ebde; border-radius: 12px; align-items: center; }
+  .btn-group .label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 0 6px 0 8px; }
+  .btn-group .btn { border-color: transparent; background: transparent; padding: 6px 9px; }
+  .btn-group .btn:hover { background: #fff; }
+  .status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 750; padding: 6px 11px; border-radius: 999px;
+    background: var(--ok-bg); color: var(--ok); white-space: nowrap;
+  }
+  .status.bad { background: var(--bad-bg); color: var(--bad); }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ---------- Layout ---------- */
+  main { display: grid; grid-template-columns: 220px 1fr 300px; min-height: 0; }
+
+  /* ---------- Pool (left) ---------- */
+  aside.pool {
+    background: var(--panel); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .panel-title {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 14px 8px; font-size: 12px; font-weight: 800; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .07em;
+  }
+  .count { background: #f1ebde; color: var(--ink); border-radius: 999px; padding: 2px 8px; font-size: 11.5px; letter-spacing: 0; }
+  .pool-drop {
+    flex: 1; overflow-y: auto; padding: 4px 12px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+    margin: 0 6px; border-radius: 12px; border: 2px dashed transparent;
+    transition: background .12s, border-color .12s;
+  }
+  body.dragging-card .pool-drop { border-color: #ddd3bf; }
+  .pool-drop.hover { background: #f6f0e3; border-color: var(--accent) !important; }
+  .pool-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 22px 10px; line-height: 1.5; }
+  .pool .card { position: relative; height: 44px; flex: none; }
+  .add-student { padding: 12px; border-top: 1px solid var(--line); }
+  .add-student textarea {
+    width: 100%; resize: none; font: inherit; font-size: 13.5px;
+    border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; background: #fff;
+    height: 40px; line-height: 20px;
+  }
+  .add-student textarea:focus { outline: 2px solid rgba(63,106,216,.25); border-color: var(--accent); }
+  .hint { font-size: 11.5px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+
+  /* ---------- Room (centre) ---------- */
+  .room-wrap { overflow: auto; position: relative; }
+  .room {
+    position: relative; margin: 22px;
+    border-radius: 20px; border: 1px solid var(--line);
+    background-color: #fbf8f1;
+    background-image:
+      linear-gradient(rgba(150,130,90,.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(150,130,90,.07) 1px, transparent 1px);
+    background-size: 40px 40px;
+    box-shadow: inset 0 0 0 6px #fbf8f1;
+  }
+  .front-zone {
+    position: absolute; left: 0; right: 0; top: 0;
+    background: linear-gradient(rgba(63,106,216,.08), rgba(63,106,216,.015));
+    border-bottom: 1.5px dashed rgba(63,106,216,.3);
+    border-radius: 20px 20px 0 0; pointer-events: none;
+  }
+  .front-zone span {
+    position: absolute; left: 14px; bottom: 7px;
+    font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+    color: rgba(63,106,216,.65);
+  }
+  .board {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    width: 40%; height: 22px; border-radius: 6px;
+    background: #35584a; border: 3px solid #b99a6a;
+    color: #dce9e2; font-size: 10px; font-weight: 800; letter-spacing: .25em;
+    display: grid; place-items: center; pointer-events: none;
+  }
+
+  .group {
+    position: absolute;
+    background: var(--table); border: 1.5px solid var(--table-edge); border-radius: 14px;
+    box-shadow: 0 3px 0 var(--table-edge), 0 10px 22px rgba(90,65,20,.10);
+  }
+  .group.single { background: var(--desk); border-color: var(--desk-edge); box-shadow: 0 3px 0 var(--desk-edge), 0 10px 22px rgba(30,50,90,.08); }
+  .group.moving { box-shadow: 0 3px 0 var(--table-edge), 0 18px 34px rgba(90,65,20,.22); z-index: 3; }
+  .group-head {
+    height: 30px; display: flex; align-items: center; gap: 6px;
+    padding: 0 4px 0 10px; cursor: grab; user-select: none; touch-action: none;
+    font-size: 12px; font-weight: 800; color: #6d5427;
+  }
+  .group.single .group-head { color: #3f5378; }
+  .group-head:active { cursor: grabbing; }
+  .gname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gname input { font: inherit; width: 100%; border: 1px solid var(--accent); border-radius: 5px; padding: 1px 4px; color: var(--ink); }
+  .gsize { font-size: 11px; font-weight: 700; opacity: .65; white-space: nowrap; }
+  .gdel {
+    width: 22px; height: 22px; border: 0; background: transparent; border-radius: 6px;
+    cursor: pointer; opacity: 0; display: grid; place-items: center; color: inherit;
+  }
+  .group:hover .gdel { opacity: .6; }
+  .gdel:hover { opacity: 1 !important; background: rgba(0,0,0,.07); }
+  .seats { position: absolute; left: 8px; top: 30px; display: grid; gap: 6px; }
+  .seat {
+    width: var(--seat-w); height: var(--seat-h); position: relative;
+    border-radius: 11px; border: 1.5px dashed rgba(109,84,39,.28);
+    background: rgba(255,255,255,.4);
+    transition: background .12s, border-color .12s, box-shadow .12s;
+  }
+  .group.single .seat { border-color: rgba(63,83,120,.25); }
+  .seat.ok { background: rgba(47,158,106,.14); border-color: rgba(47,158,106,.55); border-style: solid; }
+  .seat.bad { background: rgba(214,69,69,.10); border-color: rgba(214,69,69,.45); border-style: solid; }
+  .seat.hover { box-shadow: 0 0 0 3px var(--accent); }
+  .seat.ok.hover { box-shadow: 0 0 0 3px var(--ok); }
+  .seat.bad.hover { box-shadow: 0 0 0 3px var(--bad); }
+  .resize {
+    position: absolute; right: 1px; bottom: 1px; width: 18px; height: 18px;
+    cursor: nwse-resize; touch-action: none; border-radius: 0 0 12px 0;
+    background:
+      linear-gradient(135deg, transparent 55%, rgba(109,84,39,.45) 55%, rgba(109,84,39,.45) 62%, transparent 62%,
+                      transparent 72%, rgba(109,84,39,.45) 72%, rgba(109,84,39,.45) 79%, transparent 79%);
+    opacity: .55;
+  }
+  .group:hover .resize { opacity: 1; }
+
+  /* ---------- Student cards ---------- */
+  .card {
+    position: absolute; inset: 3px;
+    display: flex; align-items: center; gap: 6px; padding: 0 7px 0 5px;
+    background: #fff; border: 1.5px solid #e2dacb; border-radius: 9px;
+    box-shadow: 0 1px 0 #e2dacb, 0 2px 6px rgba(60,40,10,.06);
+    cursor: grab; user-select: none; touch-action: none;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  .card:hover { border-color: #cbbfa8; }
+  .card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(63,106,216,.22); }
+  .card.lifted { opacity: .3; }
+  .card.ghost {
+    position: fixed; inset: auto; left: 0; top: 0; z-index: 100; pointer-events: none;
+    box-shadow: 0 14px 30px rgba(40,30,10,.25); border-color: var(--accent); cursor: grabbing;
+  }
+  .avatar {
+    width: 26px; height: 26px; border-radius: 50%; flex: none;
+    display: grid; place-items: center; font-size: 11px; font-weight: 850; letter-spacing: -.02em;
+  }
+  .cname { flex: 1; min-width: 0; font-size: 13px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmeta { display: flex; align-items: center; gap: 3px; color: var(--muted); }
+  .cmeta svg { width: 12px; height: 12px; }
+  .gtag { font-size: 9.5px; font-weight: 850; width: 15px; height: 15px; border-radius: 4px; display: grid; place-items: center; background: #f1ebde; color: #8b8270; }
+  .rulecount { display: inline-flex; align-items: center; gap: 1px; font-size: 10.5px; font-weight: 800; }
+  .card.violated {
+    background: var(--bad-bg); border-color: var(--bad);
+    box-shadow: 0 1px 0 #f0b5b0, 0 0 0 3px rgba(214,69,69,.12);
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  .card.violated .cname { color: #a52b2b; }
+  .card.violated .cmeta { color: #c25454; }
+  .card.violated .gtag { background: #f9d3cf; color: #a52b2b; }
+  .alert {
+    position: absolute; top: -7px; right: -7px; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--bad); color: #fff; font-size: 11px; font-weight: 900;
+    display: grid; place-items: center; box-shadow: 0 0 0 2px #fff;
+  }
+  @keyframes pulse { 0%,100% { box-shadow: 0 1px 0 #f0b5b0, 0 0 0 3px rgba(214,69,69,.10); } 50% { box-shadow: 0 1px 0 #f0b5b0, 0 0 0 5px rgba(214,69,69,.22); } }
+
+  /* ---------- Inspector (right) ---------- */
+  aside.inspector {
+    background: var(--panel); border-left: 1px solid var(--line);
+    overflow-y: auto; min-height: 0;
+  }
+  .insp { padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+  .insp-head { display: flex; align-items: center; gap: 12px; }
+  .insp-head .avatar { width: 46px; height: 46px; font-size: 16px; }
+  .insp-head input {
+    flex: 1; min-width: 0; font: inherit; font-size: 19px; font-weight: 800;
+    border: 1px solid transparent; border-radius: 8px; padding: 4px 6px; background: transparent;
+  }
+  .insp-head input:hover, .insp-head input:focus { border-color: var(--line); background: #fff; outline: none; }
+  .where { font-size: 12.5px; color: var(--muted); padding-left: 6px; margin-top: 1px; }
+  .section-label { font-size: 11.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
+  .seg { display: flex; background: #f1ebde; padding: 3px; border-radius: 10px; }
+  .seg button { flex: 1; border: 0; background: transparent; padding: 6px 4px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; color: var(--muted); }
+  .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13.5px; font-weight: 650; }
+  .toggle input { display: none; }
+  .switch { width: 36px; height: 21px; border-radius: 999px; background: #ddd4c2; position: relative; transition: background .15s; flex: none; }
+  .switch::after { content: ""; position: absolute; top: 2.5px; left: 2.5px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+  .toggle input:checked + .switch { background: var(--accent); }
+  .toggle input:checked + .switch::after { transform: translateX(15px); }
+  .toggle small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; }
+
+  .rules { display: flex; flex-direction: column; gap: 6px; }
+  .rule {
+    display: flex; align-items: center; gap: 9px;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px 8px 10px;
+    font-size: 13.5px; font-weight: 600;
+  }
+  .rule.broken { border-color: #f0b5b0; background: var(--bad-bg); color: #a52b2b; }
+  .rule .state { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 11px; font-weight: 900; color: #fff; background: var(--ok); }
+  .rule .state.pending { background: #d8cfbd; }
+  .rule.broken .state { background: var(--bad); }
+  .rule .txt { flex: 1; line-height: 1.3; }
+  .rule .txt b { font-weight: 800; }
+  .rule .x { border: 0; background: transparent; width: 24px; height: 24px; border-radius: 6px; cursor: pointer; color: var(--muted); display: grid; place-items: center; }
+  .rule .x:hover { background: rgba(0,0,0,.06); color: var(--ink); }
+  .rule.readonly { background: #faf6ee; }
+  .none { font-size: 13px; color: var(--muted); padding: 2px 0; }
+  .add-rule { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding: 10px; border-radius: 12px; background: #f6f1e6; }
+  .add-rule select {
+    font: inherit; font-size: 13.5px; font-weight: 600; width: 100%;
+    border: 1px solid var(--line); border-radius: 9px; padding: 7px 8px; background: #fff; color: var(--ink);
+  }
+  .add-rule .row { display: flex; gap: 6px; }
+  .add-rule .row select { flex: 1; }
+  .divider { height: 1px; background: var(--line); }
+
+  .tips { display: flex; flex-direction: column; gap: 10px; }
+  .tip { display: flex; gap: 10px; font-size: 13.5px; line-height: 1.4; }
+  .tip .ico { width: 28px; height: 28px; border-radius: 8px; background: #f1ebde; display: grid; place-items: center; flex: none; }
+  .tip .ico svg { width: 15px; height: 15px; color: #6d5427; }
+  .conflict {
+    display: block; width: 100%; text-align: left; cursor: pointer;
+    background: var(--bad-bg); border: 1px solid #f0b5b0; border-radius: 10px; padding: 8px 10px;
+    font-size: 13px; color: #8f2626; font-weight: 600; line-height: 1.35;
+  }
+  .conflict + .conflict { margin-top: 6px; }
+  .conflict:hover { border-color: var(--bad); }
+  .legend { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+  .legend .sw { display: inline-block; width: 26px; height: 16px; border-radius: 5px; vertical-align: middle; margin-right: 8px; border: 1.5px solid; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px);
+    background: #2b2a33; color: #fff; padding: 10px 16px; border-radius: 12px;
+    font-size: 14px; font-weight: 650; box-shadow: 0 10px 30px rgba(0,0,0,.2);
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 200; max-width: 520px; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.bad { background: #a52b2b; }
+  .toast.ok { background: #23774f; }
+
+  @media print {
+    body { display: block; overflow: visible; background: #fff; }
+    header.top, aside, .toast, .resize, .gdel { display: none !important; }
+    main { display: block; }
+    .room-wrap { overflow: visible; }
+    .room { margin: 0; box-shadow: none; background: #fff; }
+    .card { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="4" width="7" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg>
+    </div>
+    Seating Planner
+  </div>
+  <input class="classname" id="className" value="Room 12 · Grade 3" aria-label="Class name">
+  <div class="spacer"></div>
+  <div class="btn-group" title="Add a desk or table to the room">
+    <span class="label">Add</span>
+    <button class="btn" data-add="1x1" title="Individual desk (1 seat)">Desk</button>
+    <button class="btn" data-add="2x1" title="Pair of desks (2 seats)">Pair</button>
+    <button class="btn" data-add="2x2" title="Table of 4">Table</button>
+    <button class="btn" data-add="3x2" title="Large table of 6">Big table</button>
+    <button class="btn" data-add="4x1" title="Row of 4 desks">Row</button>
+  </div>
+  <button class="btn ghost" id="undoBtn" title="Undo (Ctrl+Z)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo
+  </button>
+  <button class="btn ghost" id="unseatBtn" title="Move every unlocked student back to the list">Clear seats</button>
+  <span class="status" id="status"><span class="dot"></span><span id="statusText">All rules OK</span></span>
+  <button class="btn primary" id="shuffleBtn" title="Shuffle students into seats without breaking any rules">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>
+    Shuffle
+  </button>
+  <button class="btn ghost" id="moreBtn" title="Save, load and print">
+    <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+  </button>
+</header>
+
+<main>
+  <aside class="pool">
+    <div class="panel-title">Unseated <span class="count" id="poolCount">0</span></div>
+    <div class="pool-drop" id="pool"></div>
+    <div class="add-student">
+      <textarea id="newStudent" placeholder="Add students…" rows="1"></textarea>
+      <div class="hint">Press Enter to add. Paste a list, or separate names with commas.</div>
+    </div>
+  </aside>
+
+  <div class="room-wrap" id="roomWrap">
+    <div class="room" id="room"></div>
+  </div>
+
+  <aside class="inspector" id="inspector"></aside>
+</main>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="importFile" accept="application/json" hidden>
+
+<script>
+/* =====================================================================
+   Constants
+   ===================================================================== */
+const SEAT_W = 140, SEAT_H = 50, GAP = 6, PAD = 8, HEAD = 30;
+const FRONT_ZONE = 250;            // px from top of the room that count as "the front"
+const STORE_KEY = 'seating-planner-v1';
+
+const RULES = {
+  avoid_group:    { text: 'Not in the same group as', arg: 'student', pair: true },
+  avoid_adjacent: { text: 'Not sitting next to',      arg: 'student', pair: true },
+  with_group:     { text: 'In the same group as',     arg: 'student', pair: true },
+  avoid_gender:   { text: 'Not sitting next to a',    arg: 'gender' },
+  front:          { text: 'Sits in the front zone',   arg: null },
+  alone:          { text: 'Sits alone (own desk)',    arg: null },
+  in_group:       { text: 'Always sits at',           arg: 'group' },
+};
+const GENDER_LABEL = { boy: 'boy', girl: 'girl' };
+
+const ICON = {
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+  flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg>',
+  x:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  move: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>',
+  resize:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>',
+  hand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5a2 2 0 0 1 4 0v6M13 10V4a2 2 0 0 1 4 0v7M9 11V8a2 2 0 0 0-4 0v6a7 7 0 0 0 14 0v-3a2 2 0 0 0-4 0"/></svg>',
+  shuffle:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>',
+};
+
+/* =====================================================================
+   State
+   ===================================================================== */
+let state;          // { className, students:[], groups:[], seats:{sid:{g,r,c}}, selected }
+let byId = {}, groupById = {};
+const undoStack = [];
+
+const uid = () => Math.random().toString(36).slice(2, 9);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const key = p => p.g + ':' + p.r + ':' + p.c;
+const snap = v => Math.round(v / 10) * 10;
+const shuffled = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+function sampleState() {
+  const names = [
+    ['Ava','girl'],['Ben','boy'],['Chloe','girl'],['Diego','boy'],['Ella','girl'],['Finn','boy'],
+    ['Grace','girl'],['Hiro','boy'],['Isla','girl'],['Jack','boy'],['Kiara','girl'],['Leo','boy'],
+    ['Maya','girl'],['Noah','boy'],['Olivia','girl'],['Priya','girl'],['Quinn','boy'],['Ravi','boy'],
+    ['Sofia','girl'],['Theo','boy'],['Uma','girl'],['Wes','boy'],
+  ];
+  const students = names.map(([name, gender]) => ({ id: uid(), name, gender, locked: false, rules: [] }));
+  const S = Object.fromEntries(students.map(s => [s.name, s]));
+  const groups = [
+    { id: uid(), name: 'Desk A',  x: 30,  y: 60,  cols: 1, rows: 1 },
+    { id: uid(), name: 'Table 1', x: 220, y: 60,  cols: 2, rows: 2 },
+    { id: uid(), name: 'Table 2', x: 570, y: 60,  cols: 2, rows: 2 },
+    { id: uid(), name: 'Desk B',  x: 30,  y: 170, cols: 1, rows: 1 },
+    { id: uid(), name: 'Table 3', x: 220, y: 290, cols: 2, rows: 2 },
+    { id: uid(), name: 'Table 4', x: 570, y: 290, cols: 2, rows: 2 },
+    { id: uid(), name: 'Back row', x: 30,  y: 500, cols: 3, rows: 1 },
+    { id: uid(), name: 'Window row', x: 500, y: 500, cols: 3, rows: 1 },
+  ];
+  const rule = (who, type, target) => S[who].rules.push({ id: uid(), type, target: target ?? null });
+  rule('Ben', 'avoid_adjacent', S.Jack.id);
+  rule('Ben', 'avoid_group', S.Leo.id);
+  rule('Diego', 'front');
+  rule('Hiro', 'alone');
+  rule('Maya', 'with_group', S.Priya.id);
+  rule('Kiara', 'avoid_gender', 'boy');
+  rule('Noah', 'front');
+  rule('Noah', 'avoid_group', S.Theo.id);
+  rule('Finn', 'avoid_adjacent', S.Wes.id);
+  rule('Quinn', 'avoid_group', S.Ravi.id);
+  rule('Sofia', 'in_group', groups[2].id);
+
+  // Seat the first 20 students in order (this deliberately breaks a few rules
+  // so the red cards are visible); leave the last two unseated.
+  const seats = {};
+  let i = 0;
+  for (const g of groups) for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+    if (i < 20) seats[students[i++].id] = { g: g.id, r, c };
+  }
+  return { className: 'Room 12 · Grade 3', students, groups, seats, selected: null };
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) { const s = JSON.parse(raw); if (s && s.students && s.groups) return { selected: null, ...s }; }
+  } catch (e) { /* ignore */ }
+  return sampleState();
+}
+function save() {
+  const { selected, ...rest } = state;
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(rest)); } catch (e) { /* ignore */ }
+}
+function pushHistory() {
+  undoStack.push(JSON.stringify(state));
+  if (undoStack.length > 60) undoStack.shift();
+}
+function undo() {
+  if (!undoStack.length) return toast('Nothing to undo');
+  state = JSON.parse(undoStack.pop());
+  render({ animate: true });
+}
+function reindex() {
+  byId = Object.fromEntries(state.students.map(s => [s.id, s]));
+  groupById = Object.fromEntries(state.groups.map(g => [g.id, g]));
+}
+
+/* =====================================================================
+   Geometry
+   ===================================================================== */
+const groupW = g => PAD * 2 + g.cols * SEAT_W + (g.cols - 1) * GAP;
+const groupH = g => HEAD + PAD + g.rows * SEAT_H + (g.rows - 1) * GAP;
+const seatCenterY = (g, r) => g.y + HEAD + r * (SEAT_H + GAP) + SEAT_H / 2;
+
+function allSeats() {
+  const out = [];
+  for (const g of state.groups) for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) out.push({ g: g.id, r, c });
+  return out;
+}
+
+/* =====================================================================
+   Rule evaluation
+   ===================================================================== */
+function makeCtx(seats) {
+  const occ = {};
+  for (const sid in seats) occ[key(seats[sid])] = sid;
+  return { seats, occ };
+}
+function neighbours(p, ctx) {
+  const out = [];
+  for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+    const s = ctx.occ[p.g + ':' + (p.r + dr) + ':' + (p.c + dc)];
+    if (s) out.push(s);
+  }
+  return out;
+}
+/** Is `rule` (belonging to `owner`) broken in this seating? Rules about unseated students never count. */
+function ruleBroken(owner, rule, ctx) {
+  const p = ctx.seats[owner.id];
+  if (!p) return false;
+  const q = rule.target ? ctx.seats[rule.target] : null;
+  switch (rule.type) {
+    case 'avoid_group':    return !!q && q.g === p.g;
+    case 'avoid_adjacent': return !!q && q.g === p.g && Math.abs(q.r - p.r) + Math.abs(q.c - p.c) === 1;
+    case 'with_group':     return !!q && q.g !== p.g;
+    case 'avoid_gender':   return neighbours(p, ctx).some(n => byId[n] && byId[n].gender === rule.target);
+    case 'front':          { const g = groupById[p.g]; return !g || seatCenterY(g, p.r) > FRONT_ZONE; }
+    case 'alone':          { for (const sid in ctx.seats) if (sid !== owner.id && ctx.seats[sid].g === p.g) return true; return false; }
+    case 'in_group':       return p.g !== rule.target;
+  }
+  return false;
+}
+/** Could rule `rule` be checked yet? (Used for the ✓ / ○ marker in the inspector.) */
+function ruleCheckable(owner, rule, seats) {
+  if (!seats[owner.id]) return false;
+  if (RULES[rule.type].pair) return !!seats[rule.target];
+  return true;
+}
+function describeRule(rule) {
+  const def = RULES[rule.type];
+  if (def.arg === 'student') return `${def.text} <b>${esc(byId[rule.target]?.name ?? '?')}</b>`;
+  if (def.arg === 'gender')  return `${def.text} <b>${GENDER_LABEL[rule.target]}</b>`;
+  if (def.arg === 'group')   return `${def.text} <b>${esc(groupById[rule.target]?.name ?? '?')}</b>`;
+  return def.text;
+}
+function plainRule(owner, rule) {
+  return owner.name + ': ' + describeRule(rule).replace(/<\/?b>/g, '').replace(/&amp;/g, '&');
+}
+
+/** Evaluate every rule. Returns which students are in conflict and why. */
+function evaluate(seats) {
+  const ctx = makeCtx(seats);
+  const flagged = {};      // sid -> [reasons]
+  const broken = [];       // [{owner, rule}]
+  const flag = (sid, msg) => (flagged[sid] ||= []).push(msg);
+  for (const s of state.students) {
+    for (const rule of s.rules) {
+      if (!ruleBroken(s, rule, ctx)) continue;
+      broken.push({ owner: s, rule });
+      const msg = plainRule(s, rule);
+      flag(s.id, msg);
+      if (RULES[rule.type].pair && rule.target !== s.id) flag(rule.target, msg);
+    }
+  }
+  return { flagged, broken, ctx };
+}
+function countBroken(ctx) {
+  let n = 0;
+  for (const s of state.students) for (const rule of s.rules) if (ruleBroken(s, rule, ctx)) n++;
+  return n;
+}
+/** After placing `sid`, is every rule that could involve them still OK? */
+function placementOk(sid, ctx) {
+  const s = byId[sid], p = ctx.seats[sid];
+  for (const rule of s.rules) if (ruleBroken(s, rule, ctx)) return false;
+  for (const other in ctx.seats) {
+    if (other === sid) continue;
+    const near = ctx.seats[other].g === p.g;
+    const o = byId[other];
+    for (const rule of o.rules) {
+      if ((near || rule.target === sid) && ruleBroken(o, rule, ctx)) return false;
+    }
+  }
+  return true;
+}
+
+/* =====================================================================
+   Shuffle (randomised backtracking, then a best-effort fallback)
+   ===================================================================== */
+function shuffleSeats() {
+  reindex();
+  const base = {};
+  for (const s of state.students) if (s.locked && state.seats[s.id]) base[s.id] = { ...state.seats[s.id] };
+  const taken = new Set(Object.values(base).map(key));
+  const free = allSeats().filter(p => !taken.has(key(p)));
+  const movers = state.students.filter(s => !base[s.id]);
+
+  if (!movers.length) return toast('Everyone is locked in place — nothing to shuffle.');
+  if (movers.length > free.length) {
+    const need = movers.length - free.length;
+    return toast(`Not enough seats: add or resize groups to make ${need} more seat${need > 1 ? 's' : ''}.`, 'bad');
+  }
+
+  // Students with more rules (or more rules about them) are placed first.
+  const weight = {};
+  for (const s of state.students) weight[s.id] = (weight[s.id] || 0) + s.rules.length * 2;
+  for (const s of state.students) for (const r of s.rules) if (r.target && byId[r.target]) weight[r.target] = (weight[r.target] || 0) + 1;
+
+  let result = null;
+  const LIMIT = 20000;
+  for (let attempt = 0; attempt < 40 && !result; attempt++) {
+    const order = shuffled(movers).sort((a, b) => weight[b.id] - weight[a.id]);
+    const seats = { ...base };
+    const ctx = makeCtx(seats);
+    let nodes = 0;
+    const place = i => {
+      if (i === order.length) return true;
+      if (++nodes > LIMIT) return false;
+      const sid = order[i].id;
+      for (const p of shuffled(free)) {
+        const k = key(p);
+        if (ctx.occ[k]) continue;
+        seats[sid] = p; ctx.occ[k] = sid;
+        if (placementOk(sid, ctx) && place(i + 1)) return true;
+        delete seats[sid]; delete ctx.occ[k];
+        if (nodes > LIMIT) return false;
+      }
+      return false;
+    };
+    if (place(0)) result = seats;
+  }
+
+  pushHistory();
+  if (result) {
+    state.seats = result;
+    render({ animate: true });
+    toast('Shuffled! Every rule is satisfied.', 'ok');
+    return;
+  }
+
+  // Fallback: no perfect arrangement found — minimise the number of broken rules.
+  let cur = { ...base };
+  shuffled(free).slice(0, movers.length).forEach((p, i) => (cur[movers[i].id] = p));
+  let score = countBroken(makeCtx(cur));
+  let best = { ...cur }, bestScore = score;
+  for (let it = 0; it < 6000 && bestScore > 0; it++) {
+    const a = movers[Math.random() * movers.length | 0].id;
+    const p = free[Math.random() * free.length | 0];
+    const next = { ...cur };
+    const occupant = Object.keys(next).find(id => key(next[id]) === key(p));
+    if (occupant === a) continue;
+    if (occupant) next[occupant] = next[a];
+    next[a] = p;
+    const sc = countBroken(makeCtx(next));
+    if (sc <= score || Math.random() < 0.02) { cur = next; score = sc; }
+    if (sc < bestScore) { best = { ...next }; bestScore = sc; }
+  }
+  state.seats = best;
+  render({ animate: true });
+  toast(`Couldn't satisfy every rule — ${bestScore} still broken (shown in red). Try adding seats or relaxing a rule.`, 'bad');
+}
+
+/* =====================================================================
+   Mutations
+   ===================================================================== */
+function moveStudent(seats, sid, target) {
+  if (!target) { delete seats[sid]; return; }
+  const from = seats[sid];
+  const occupant = Object.keys(seats).find(id => id !== sid && key(seats[id]) === key(target));
+  if (occupant) { if (from) seats[occupant] = from; else delete seats[occupant]; }
+  seats[sid] = { ...target };
+}
+function addStudents(text) {
+  const names = text.split(/[,\n]/).map(n => n.trim()).filter(Boolean);
+  if (!names.length) return;
+  pushHistory();
+  for (const name of names) state.students.push({ id: uid(), name, gender: '', locked: false, rules: [] });
+  render();
+  toast(names.length === 1 ? `Added ${names[0]}` : `Added ${names.length} students`);
+}
+function deleteStudent(sid) {
+  pushHistory();
+  state.students = state.students.filter(s => s.id !== sid);
+  for (const s of state.students) s.rules = s.rules.filter(r => r.target !== sid);
+  delete state.seats[sid];
+  if (state.selected === sid) state.selected = null;
+  render();
+}
+function addGroup(spec) {
+  const [cols, rows] = spec.split('x').map(Number);
+  const g = { id: uid(), name: '', x: 0, y: 0, cols, rows };
+  const kind = cols * rows === 1 ? 'Desk' : rows === 1 && cols >= 3 ? 'Row' : cols * rows === 2 ? 'Pair' : 'Table';
+  const n = state.groups.filter(x => x.name.startsWith(kind)).length + 1;
+  g.name = `${kind} ${n}`;
+  // Find the first free spot, scanning left→right, top→bottom.
+  const roomW = Math.max(1000, ...state.groups.map(o => o.x + groupW(o) + 40));
+  const overlaps = (x, y) => state.groups.some(o =>
+    x < o.x + groupW(o) + 20 && x + groupW(g) + 20 > o.x && y < o.y + groupH(o) + 20 && y + groupH(g) + 20 > o.y);
+  outer: for (let y = 60; y < 3000; y += 20) for (let x = 40; x + groupW(g) < roomW; x += 20) {
+    if (!overlaps(x, y)) { g.x = x; g.y = y; break outer; }
+  }
+  pushHistory();
+  state.groups.push(g);
+  render();
+  requestAnimationFrame(() => document.querySelector(`.group[data-id="${g.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+}
+function deleteGroup(gid) {
+  pushHistory();
+  const g = groupById[gid];
+  state.groups = state.groups.filter(x => x.id !== gid);
+  let moved = 0;
+  for (const sid in state.seats) if (state.seats[sid].g === gid) { delete state.seats[sid]; moved++; }
+  for (const s of state.students) s.rules = s.rules.filter(r => !(r.type === 'in_group' && r.target === gid));
+  render();
+  toast(`Removed ${g.name}` + (moved ? ` — ${moved} student${moved > 1 ? 's' : ''} moved to Unseated` : ''));
+}
+
+/* =====================================================================
+   Rendering
+   ===================================================================== */
+function avatarStyle(name) {
+  let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `background:hsl(${h} 70% 89%);color:hsl(${h} 45% 32%)`;
+}
+const initials = name => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
+
+function cardHTML(s, evalRes) {
+  const reasons = evalRes.flagged[s.id];
+  const ruleCount = s.rules.length;
+  const tip = reasons ? 'Broken rules:\n• ' + reasons.join('\n• ') : s.name + (ruleCount ? `\n${ruleCount} rule${ruleCount > 1 ? 's' : ''}` : '');
+  return `<div class="card${reasons ? ' violated' : ''}${state.selected === s.id ? ' selected' : ''}" data-id="${s.id}" title="${esc(tip)}">
+    <span class="avatar" style="${avatarStyle(s.name)}">${esc(initials(s.name))}</span>
+    <span class="cname">${esc(s.name)}</span>
+    <span class="cmeta">
+      ${s.locked ? ICON.lock : ''}
+      ${ruleCount ? `<span class="rulecount">${ICON.flag}</span>` : ''}
+      ${s.gender ? `<span class="gtag">${s.gender === 'boy' ? 'B' : 'G'}</span>` : ''}
+    </span>
+    ${reasons ? '<span class="alert">!</span>' : ''}
+  </div>`;
+}
+
+function render(opts = {}) {
+  reindex();
+  // FLIP: remember where every card was so moves can animate.
+  const before = {};
+  if (opts.animate) document.querySelectorAll('.card:not(.ghost)').forEach(el => (before[el.dataset.id] = el.getBoundingClientRect()));
+
+  const ev = evaluate(state.seats);
+  const occ = ev.ctx.occ;
+
+  // ----- Room -----
+  const roomW = Math.max(900, ...state.groups.map(g => g.x + groupW(g) + 40));
+  const roomH = Math.max(660, ...state.groups.map(g => g.y + groupH(g) + 60));
+  const room = document.getElementById('room');
+  room.style.width = roomW + 'px';
+  room.style.height = roomH + 'px';
+  let html = `<div class="front-zone" style="height:${FRONT_ZONE}px"><span>Front zone</span></div><div class="board">BOARD</div>`;
+  for (const g of state.groups) {
+    let seats = '';
+    for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+      const sid = occ[g.id + ':' + r + ':' + c];
+      seats += `<div class="seat" data-seat="${g.id}:${r}:${c}">${sid ? cardHTML(byId[sid], ev) : ''}</div>`;
+    }
+    const n = g.cols * g.rows;
+    html += `<div class="group${n === 1 ? ' single' : ''}" data-id="${g.id}" style="left:${g.x}px;top:${g.y}px;width:${groupW(g)}px;height:${groupH(g)}px">
+      <div class="group-head" title="Drag to move · double-click to rename">
+        <span class="gname">${esc(g.name)}</span>
+        <span class="gsize">${n > 1 ? `${g.cols}×${g.rows} · ` : ''}${n} seat${n > 1 ? 's' : ''}</span>
+        <button class="gdel" data-del-group="${g.id}" title="Remove">${ICON.x}</button>
+      </div>
+      <div class="seats" style="grid-template-columns:repeat(${g.cols}, ${SEAT_W}px)">${seats}</div>
+      <div class="resize" title="Drag to resize"></div>
+    </div>`;
+  }
+  room.innerHTML = html;
+
+  // ----- Pool -----
+  const unseated = state.students.filter(s => !state.seats[s.id]).sort((a, b) => a.name.localeCompare(b.name));
+  document.getElementById('poolCount').textContent = unseated.length;
+  document.getElementById('pool').innerHTML = unseated.length
+    ? unseated.map(s => cardHTML(s, ev)).join('')
+    : `<div class="pool-empty">Everyone has a seat 🎉<br>Drag a card here to unseat a student.</div>`;
+
+  // ----- Status -----
+  const status = document.getElementById('status');
+  const nb = ev.broken.length;
+  status.classList.toggle('bad', nb > 0);
+  document.getElementById('statusText').textContent = nb ? `${nb} rule${nb > 1 ? 's' : ''} broken` : 'All rules OK';
+  document.getElementById('className').value = state.className || '';
+
+  if (opts.inspector !== false) renderInspector(ev);
+  save();
+
+  if (opts.animate) {
+    let i = 0;
+    document.querySelectorAll('.card').forEach(el => {
+      const old = before[el.dataset.id];
+      if (!old) return;
+      const now = el.getBoundingClientRect();
+      const dx = old.left - now.left, dy = old.top - now.top;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      el.animate([{ transform: `translate(${dx}px, ${dy}px)`, zIndex: 50 }, { transform: 'none', zIndex: 50 }],
+        { duration: 520, delay: (i++ % 24) * 14, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' });
+    });
+  }
+}
+
+function renderInspector(ev) {
+  const el = document.getElementById('inspector');
+  const s = byId[state.selected];
+  if (!s) { el.innerHTML = overviewHTML(ev); return; }
+
+  const p = state.seats[s.id];
+  const where = p ? `Sitting at ${esc(groupById[p.g].name)}` : 'Not seated yet';
+  const ctx = ev.ctx;
+
+  const ruleRow = (owner, rule, removable) => {
+    const checkable = ruleCheckable(owner, rule, state.seats);
+    const broken = ruleBroken(owner, rule, ctx);
+    const st = broken ? '!' : checkable ? '✓' : '';
+    return `<div class="rule${broken ? ' broken' : ''}${removable ? '' : ' readonly'}">
+      <span class="state${!broken && !checkable ? ' pending' : ''}" title="${broken ? 'Broken' : checkable ? 'Satisfied' : 'Not checked until both are seated'}">${st}</span>
+      <span class="txt">${removable ? '' : `<b>${esc(owner.name)}</b>: `}${describeRule(rule)}</span>
+      ${removable ? `<button class="x" data-del-rule="${rule.id}" title="Remove rule">${ICON.x}</button>` : ''}
+    </div>`;
+  };
+  const own = s.rules.map(r => ruleRow(s, r, true)).join('') || '<div class="none">No rules yet.</div>';
+  const others = [];
+  for (const o of state.students) for (const r of o.rules) if (o.id !== s.id && r.target === s.id) others.push(ruleRow(o, r, false));
+
+  el.innerHTML = `<div class="insp">
+    <div>
+      <div class="insp-head">
+        <span class="avatar" style="${avatarStyle(s.name)}">${esc(initials(s.name))}</span>
+        <div style="flex:1;min-width:0">
+          <input id="nameInput" value="${esc(s.name)}" aria-label="Student name">
+          <div class="where">${where}</div>
+        </div>
+        <button class="btn ghost" data-action="close" title="Close" style="padding:6px">${ICON.x}</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Gender</div>
+      <div class="seg">
+        <button data-gender="boy" class="${s.gender === 'boy' ? 'on' : ''}">Boy</button>
+        <button data-gender="girl" class="${s.gender === 'girl' ? 'on' : ''}">Girl</button>
+        <button data-gender="" class="${!s.gender ? 'on' : ''}">Not set</button>
+      </div>
+    </div>
+
+    <label class="toggle">
+      <input type="checkbox" id="lockInput" ${s.locked ? 'checked' : ''}>
+      <span class="switch"></span>
+      <span>Keep in this seat<small>Shuffle won't move ${esc(s.name)}</small></span>
+    </label>
+
+    <div class="divider"></div>
+
+    <div>
+      <div class="section-label">Seating rules</div>
+      <div class="rules">${own}</div>
+      <div class="add-rule">
+        <select id="ruleType">
+          ${Object.entries(RULES).map(([k, d]) => `<option value="${k}">${d.text}${d.arg ? '…' : ''}</option>`).join('')}
+        </select>
+        <div class="row">
+          <select id="ruleArg"></select>
+          <button class="btn primary" data-action="add-rule" style="padding:7px 12px">Add</button>
+        </div>
+      </div>
+    </div>
+
+    ${others.length ? `<div><div class="section-label">Classmates' rules about ${esc(s.name)}</div><div class="rules">${others.join('')}</div></div>` : ''}
+
+    <div class="divider"></div>
+    <button class="btn danger ghost" data-action="delete-student" style="align-self:flex-start">Remove ${esc(s.name)} from class</button>
+  </div>`;
+  fillRuleArg();
+}
+
+function fillRuleArg() {
+  const type = document.getElementById('ruleType')?.value;
+  const sel = document.getElementById('ruleArg');
+  if (!sel) return;
+  const arg = RULES[type].arg;
+  let opts = '';
+  if (arg === 'student') opts = state.students.filter(o => o.id !== state.selected).sort((a, b) => a.name.localeCompare(b.name))
+    .map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
+  else if (arg === 'gender') opts = '<option value="boy">boy</option><option value="girl">girl</option>';
+  else if (arg === 'group') opts = state.groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('');
+  sel.innerHTML = opts;
+  sel.style.display = arg ? '' : 'none';
+}
+
+function overviewHTML(ev) {
+  const conflicts = ev.broken.map(({ owner, rule }) =>
+    `<button class="conflict" data-select="${owner.id}">${esc(plainRule(owner, rule))}</button>`).join('');
+  return `<div class="insp">
+    <div>
+      <div class="section-label">${ev.broken.length ? 'Conflicts to fix' : 'Conflicts'}</div>
+      ${conflicts || '<div class="none">None — every rule is satisfied. ✓</div>'}
+    </div>
+    <div class="divider"></div>
+    <div>
+      <div class="section-label">How it works</div>
+      <div class="tips">
+        <div class="tip"><span class="ico">${ICON.hand}</span><span>Drag a student card onto a seat. Drop on someone to swap. While dragging, seats glow <b style="color:var(--ok)">green</b> or <b style="color:var(--bad)">red</b>.</span></div>
+        <div class="tip"><span class="ico">${ICON.flag}</span><span>Click a student to set their gender and add rules like “not next to Jack” or “not next to a boy”.</span></div>
+        <div class="tip"><span class="ico">${ICON.move}</span><span>Drag a table by its top bar to move it. Double-click the name to rename.</span></div>
+        <div class="tip"><span class="ico">${ICON.resize}</span><span>Drag the bottom-right corner of a table to add or remove seats.</span></div>
+        <div class="tip"><span class="ico">${ICON.shuffle}</span><span><b>Shuffle</b> re-seats everyone randomly without breaking any rule. Locked students stay put.</span></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div>
+      <div class="section-label">Legend</div>
+      <div class="legend">
+        <div><span class="sw" style="background:#fff;border-color:#e2dacb"></span>Student — all good</div>
+        <div><span class="sw" style="background:var(--bad-bg);border-color:var(--bad)"></span>A rule is broken (hover for details)</div>
+        <div><span class="sw" style="background:var(--table);border-color:var(--table-edge)"></span>Table / group</div>
+        <div><span class="sw" style="background:var(--desk);border-color:var(--desk-edge)"></span>Individual desk</div>
+        <div><span class="sw" style="background:rgba(63,106,216,.08);border-color:rgba(63,106,216,.35);border-style:dashed"></span>Front zone</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+let toastTimer;
+function toast(msg, kind = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + kind;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (t.className = 'toast ' + kind), kind === 'bad' ? 4200 : 2400);
+}
+
+function select(sid) {
+  state.selected = sid;
+  render();
+}
+
+/* =====================================================================
+   Dragging: cards, groups, resize handles
+   ===================================================================== */
+function startCardDrag(e, card) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  const sid = card.dataset.id;
+  const rect = card.getBoundingClientRect();
+  const sx = e.clientX, sy = e.clientY;
+  let ghost = null, over = null;
+
+  const begin = () => {
+    ghost = card.cloneNode(true);
+    ghost.classList.add('ghost');
+    ghost.classList.remove('selected');
+    ghost.style.width = rect.width + 'px';
+    ghost.style.height = rect.height + 'px';
+    document.body.appendChild(ghost);
+    card.classList.add('lifted');
+    document.body.classList.add('dragging-card');
+    // Preview: would dropping here break a rule for the dragged student (or whoever gets swapped)?
+    document.querySelectorAll('.seat').forEach(seatEl => {
+      const [g, r, c] = seatEl.dataset.seat.split(':');
+      const target = { g, r: +r, c: +c };
+      const hyp = { ...state.seats };
+      const occupant = Object.keys(hyp).find(id => id !== sid && key(hyp[id]) === key(target));
+      moveStudent(hyp, sid, target);
+      const res = evaluate(hyp);
+      const bad = res.flagged[sid] || (occupant && hyp[occupant] && res.flagged[occupant]);
+      seatEl.classList.add(bad ? 'bad' : 'ok');
+    });
+  };
+  const move = ev => {
+    if (!ghost) {
+      if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 5) return;
+      begin();
+    }
+    ghost.style.transform = `translate(${ev.clientX - (sx - rect.left)}px, ${ev.clientY - (sy - rect.top)}px) rotate(-2deg)`;
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    const t = el && el.closest('.seat, .pool-drop');
+    if (t !== over) { over?.classList.remove('hover'); over = t; over?.classList.add('hover'); }
+    autoScroll(ev);
+  };
+  const end = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    stopAutoScroll();
+    if (!ghost) { select(state.selected === sid ? null : sid); return; }
+    ghost.remove();
+    document.body.classList.remove('dragging-card');
+    if (over) {
+      pushHistory();
+      if (over.classList.contains('seat')) {
+        const [g, r, c] = over.dataset.seat.split(':');
+        moveStudent(state.seats, sid, { g, r: +r, c: +c });
+      } else {
+        moveStudent(state.seats, sid, null);
+      }
+    }
+    render({ animate: true });
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+}
+
+let scrollTimer = null, scrollVec = [0, 0];
+function autoScroll(ev) {
+  const wrap = document.getElementById('roomWrap');
+  const r = wrap.getBoundingClientRect();
+  const edge = 40, speed = 14;
+  scrollVec = [
+    ev.clientX < r.left + edge && ev.clientX > r.left ? -speed : ev.clientX > r.right - edge && ev.clientX < r.right ? speed : 0,
+    ev.clientY < r.top + edge && ev.clientY > r.top ? -speed : ev.clientY > r.bottom - edge && ev.clientY < r.bottom ? speed : 0,
+  ];
+  if ((scrollVec[0] || scrollVec[1]) && !scrollTimer) {
+    scrollTimer = setInterval(() => wrap.scrollBy(scrollVec[0], scrollVec[1]), 16);
+  } else if (!scrollVec[0] && !scrollVec[1]) stopAutoScroll();
+}
+function stopAutoScroll() { clearInterval(scrollTimer); scrollTimer = null; }
+
+function startGroupDrag(e, gid) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  const g = groupById[gid];
+  const sx = e.clientX, sy = e.clientY, ox = g.x, oy = g.y;
+  let started = false;
+  const move = ev => {
+    const dx = ev.clientX - sx, dy = ev.clientY - sy;
+    if (!started) { if (Math.hypot(dx, dy) < 3) return; started = true; pushHistory(); }
+    const nx = Math.max(10, snap(ox + dx)), ny = Math.max(40, snap(oy + dy));
+    if (nx === g.x && ny === g.y) return;
+    g.x = nx; g.y = ny;
+    render({ inspector: false });      // live: front-zone rules update while dragging
+    document.querySelector(`.group[data-id="${gid}"]`)?.classList.add('moving');
+  };
+  const end = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    if (started) render();
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+}
+
+function startResize(e, gid) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const g = groupById[gid];
+  const sx = e.clientX, sy = e.clientY, w0 = groupW(g), h0 = groupH(g);
+  const seatsBefore = JSON.parse(JSON.stringify(state.seats));
+  let pushed = false;
+  const move = ev => {
+    const cols = Math.min(8, Math.max(1, Math.round((w0 + ev.clientX - sx - PAD * 2 + GAP) / (SEAT_W + GAP))));
+    const rows = Math.min(8, Math.max(1, Math.round((h0 + ev.clientY - sy - HEAD - PAD + GAP) / (SEAT_H + GAP))));
+    if (cols === g.cols && rows === g.rows) return;
+    if (!pushed) { pushHistory(); pushed = true; }
+    g.cols = cols; g.rows = rows;
+    // Recompute from the snapshot so shrinking then growing in one drag keeps students.
+    state.seats = {};
+    for (const sid in seatsBefore) {
+      const p = seatsBefore[sid];
+      if (p.g === gid && (p.r >= rows || p.c >= cols)) continue;
+      state.seats[sid] = p;
+    }
+    render({ inspector: false });
+  };
+  const end = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    if (pushed) {
+      const evicted = Object.keys(seatsBefore).filter(id => !state.seats[id]).length;
+      render();
+      if (evicted) toast(`${evicted} student${evicted > 1 ? 's' : ''} moved to Unseated`);
+    }
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+}
+
+/* =====================================================================
+   Event wiring
+   ===================================================================== */
+document.addEventListener('pointerdown', e => {
+  if (e.target.closest('.resize')) return startResize(e, e.target.closest('.group').dataset.id);
+  const card = e.target.closest('.card:not(.ghost)');
+  if (card) return startCardDrag(e, card);
+  const head = e.target.closest('.group-head');
+  if (head && !e.target.closest('button, input')) return startGroupDrag(e, head.closest('.group').dataset.id);
+});
+
+document.getElementById('room').addEventListener('dblclick', e => {
+  const name = e.target.closest('.gname');
+  if (!name) return;
+  const gid = name.closest('.group').dataset.id;
+  const g = groupById[gid];
+  name.innerHTML = `<input value="${esc(g.name)}">`;
+  const input = name.querySelector('input');
+  input.focus(); input.select();
+  input.addEventListener('pointerdown', ev => ev.stopPropagation());
+  const commit = () => { const v = input.value.trim(); if (v && v !== g.name) { pushHistory(); g.name = v; } render(); };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', ev => { if (ev.key === 'Enter') input.blur(); if (ev.key === 'Escape') { input.value = g.name; input.blur(); } });
+});
+
+document.getElementById('room').addEventListener('click', e => {
+  const del = e.target.closest('[data-del-group]');
+  if (del) return deleteGroup(del.dataset.delGroup);
+  if (e.target === e.currentTarget || e.target.classList.contains('front-zone')) { if (state.selected) select(null); }
+});
+
+document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => addGroup(b.dataset.add)));
+document.getElementById('shuffleBtn').addEventListener('click', shuffleSeats);
+document.getElementById('undoBtn').addEventListener('click', undo);
+document.getElementById('unseatBtn').addEventListener('click', () => {
+  pushHistory();
+  for (const s of state.students) if (!s.locked) delete state.seats[s.id];
+  render({ animate: true });
+});
+document.getElementById('className').addEventListener('change', e => { state.className = e.target.value; save(); });
+
+const newStudent = document.getElementById('newStudent');
+newStudent.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addStudents(newStudent.value); newStudent.value = ''; }
+});
+newStudent.addEventListener('paste', e => {
+  const text = e.clipboardData.getData('text');
+  if (/[\n,]/.test(text)) { e.preventDefault(); addStudents(text); }
+});
+
+const inspector = document.getElementById('inspector');
+inspector.addEventListener('click', e => {
+  const sel = e.target.closest('[data-select]');
+  if (sel) return select(sel.dataset.select);
+  const s = byId[state.selected];
+  if (!s) return;
+  const g = e.target.closest('[data-gender]');
+  if (g) { pushHistory(); s.gender = g.dataset.gender; return render(); }
+  const dr = e.target.closest('[data-del-rule]');
+  if (dr) { pushHistory(); s.rules = s.rules.filter(r => r.id !== dr.dataset.delRule); return render(); }
+  const action = e.target.closest('[data-action]')?.dataset.action;
+  if (action === 'close') return select(null);
+  if (action === 'delete-student') return deleteStudent(s.id);
+  if (action === 'add-rule') {
+    const type = document.getElementById('ruleType').value;
+    const arg = RULES[type].arg ? document.getElementById('ruleArg').value : null;
+    if (RULES[type].arg && !arg) return toast('Pick who or what the rule is about');
+    if (s.rules.some(r => r.type === type && r.target === arg)) return toast('That rule already exists');
+    pushHistory();
+    s.rules.push({ id: uid(), type, target: arg });
+    render();
+  }
+});
+inspector.addEventListener('change', e => {
+  const s = byId[state.selected];
+  if (!s) return;
+  if (e.target.id === 'ruleType') fillRuleArg();
+  if (e.target.id === 'lockInput') { pushHistory(); s.locked = e.target.checked; render(); }
+  if (e.target.id === 'nameInput') { const v = e.target.value.trim(); if (v && v !== s.name) { pushHistory(); s.name = v; render(); } }
+});
+inspector.addEventListener('keydown', e => { if (e.target.id === 'nameInput' && e.key === 'Enter') e.target.blur(); });
+
+document.addEventListener('keydown', e => {
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); undo(); }
+  if (e.key === 'Escape' && !typing && state.selected) select(null);
+});
+
+// "More" menu: save / load / print / reset
+document.getElementById('moreBtn').addEventListener('click', () => {
+  const choice = prompt('Type a number:\n1 — Download plan (JSON)\n2 — Load plan from file\n3 — Print seating chart\n4 — Reset to sample class\n5 — Start an empty class');
+  if (choice === '1') {
+    const { selected, ...rest } = state;
+    const blob = new Blob([JSON.stringify(rest, null, 2)], { type: 'application/json' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: (state.className || 'seating-plan').replace(/[^\w\- ]+/g, '') + '.json' });
+    a.click(); URL.revokeObjectURL(a.href);
+  } else if (choice === '2') document.getElementById('importFile').click();
+  else if (choice === '3') { state.selected = null; render(); setTimeout(() => window.print(), 50); }
+  else if (choice === '4') { pushHistory(); state = sampleState(); render({ animate: true }); }
+  else if (choice === '5') { pushHistory(); state = { className: 'My class', students: [], groups: [], seats: {}, selected: null }; render(); }
+});
+document.getElementById('importFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data.students || !data.groups) throw new Error();
+    pushHistory();
+    state = { seats: {}, selected: null, ...data };
+    render();
+    toast('Plan loaded', 'ok');
+  } catch { toast('That file is not a seating plan', 'bad'); }
+  e.target.value = '';
+});
+
+/* ===================================================================== */
+state = load();
+render();
+</script>
+</body>
+</html>
