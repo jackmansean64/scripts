@@ -7,7 +7,12 @@ A single-file, no-install seating plan tool for elementary teachers. Open `index
 ## Features
 
 - **Student cards**: drag them between seats, onto a classmate to swap, or back to the *Unseated* list. Works with mouse and touch.
-- **Groups**: individual desks, pairs, tables and rows. Drag the top bar to move a group, drag the bottom-right corner to resize it (add/remove seats), double-click the name to rename it.
+- **Groups**: individual desks, pairs, tables of 4, long tables (2 per side + 1 on the end), big tables and rows. Drag the top bar to move a group, double-click the name to rename it.
+- **Edit layout** mode (top bar):
+  - Drag desks to make tables any shape. Drop a desk on another table to move it there, or on open floor to make it a separate desk. The student sitting there moves with it.
+  - **+** adds a desk to a table, **×** removes one, **⟳** rotates a table 90°.
+  - Dotted lines show which desks count as "next to" each other (desks touching or less than 24px apart, side by side or one behind the other). Leave a gap if students across a table shouldn't count.
+  - Drag the board to any wall; the front zone follows it. Drag the blue handles to resize the room and change how deep the front zone is.
 - **Rules per student** (click a card):
   - Not in the same group as *student*
   - Not sitting next to *student*
@@ -20,4 +25,4 @@ A single-file, no-install seating plan tool for elementary teachers. Open `index
 - **Shuffle**: re-seats everyone randomly while satisfying every rule (randomised backtracking search). Students marked *Keep in this seat* are not moved. If no valid arrangement exists, it finds the one with the fewest broken rules and highlights them.
 - Undo (Ctrl/⌘+Z), automatic saving in the browser, download/load the plan as JSON, and print (via the ⋯ menu).
 
-"Next to" means directly left, right, in front or behind within the same group (not diagonal).
+Plans saved by earlier versions (rectangular tables) are converted automatically when loaded.
