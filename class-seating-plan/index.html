@@ -150,11 +150,12 @@
   .group.moving { box-shadow: 0 3px 0 var(--table-edge), 0 18px 34px rgba(90,65,20,.22); z-index: 3; }
   .group-head {
     height: 32px; display: flex; align-items: center; gap: 6px;
-    padding: 0 4px 0 10px; cursor: grab; user-select: none; touch-action: none;
+    padding: 0 4px 0 10px; cursor: default; user-select: none;
     font-size: 12px; font-weight: 800; color: #6d5427;
   }
   .group.single .group-head { color: #3f5378; }
-  .group-head:active { cursor: grabbing; }
+  body.layout .group-head { cursor: grab; touch-action: none; }
+  body.layout .group-head:active { cursor: grabbing; }
   .gname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .gname input { font: inherit; width: 100%; border: 1px solid var(--accent); border-radius: 5px; padding: 1px 4px; color: var(--ink); }
   .gsize { font-size: 11px; font-weight: 700; opacity: .65; white-space: nowrap; }
@@ -1031,7 +1032,7 @@ function render(opts = {}) {
     }
     const n = g.seats.length;
     html += `<div class="group${n === 1 ? ' single' : ''}" data-id="${g.id}" style="left:${g.x}px;top:${g.y}px;width:${w}px;height:${h}px">
-      <div class="group-head" title="Drag to move · double-click to rename">
+      <div class="group-head" title="${layoutMode ? 'Drag to move · double-click to rename' : 'Double-click to rename · click Edit layout to move tables'}">
         <span class="gname">${esc(g.name)}</span>
         <span class="gsize">${n} seat${n > 1 ? 's' : ''}</span>
         <button class="gbtn" data-add-seat="${g.id}" title="Add a desk to ${esc(g.name)}">${ICON.plus}</button>
@@ -1167,7 +1168,7 @@ function overviewHTML(ev) {
   const conflicts = ev.broken.map(({ owner, rule }) =>
     `<button class="conflict" data-select="${owner.id}">${esc(plainRule(owner, rule))}</button>`).join('');
   const tips = layoutMode ? `
-        <div class="tip"><span class="ico">${ICON.move}</span><span>Drag a desk to move it within its table. Drop it on another table to move it there, or onto open floor to make it a separate desk.</span></div>
+        <div class="tip"><span class="ico">${ICON.move}</span><span>Drag a table by its top bar to move it. Drag a desk to move it within its table. Drop it on another table to move it there, or onto open floor to make it a separate desk.</span></div>
         <div class="tip"><span class="ico">${ICON.plus}</span><span>Use <b>+</b> on a table to add a desk, <b>×</b> on a desk to remove it, and <b>⟳</b> to rotate the table.</span></div>
         <div class="tip"><span class="ico">${ICON.hand}</span><span>Desks joined by a dotted line count as <b>next to</b> each other. Leave a gap between desks if students across a table shouldn't count.</span></div>
         <div class="tip"><span class="ico">${ICON.rotate}</span><span>Drag the <b>board</b> to any wall, and drag the blue corner handle to resize the room.</span></div>`
@@ -1175,7 +1176,7 @@ function overviewHTML(ev) {
         <div class="tip"><span class="ico">${ICON.hand}</span><span>Drag a student card onto a seat. Drop on someone to swap. While dragging, seats glow <b style="color:var(--ok)">green</b> or <b style="color:var(--bad)">red</b>.</span></div>
         <div class="tip"><span class="ico">${ICON.flag}</span><span>Click a student to set their gender and add rules like “not next to Jack” or “not next to a boy”.</span></div>
         <div class="tip"><span class="ico">${ICON.pencil}</span><span><b>Edit layout</b> to reshape tables desk by desk, move the board to another wall, or resize the room.</span></div>
-        <div class="tip"><span class="ico">${ICON.move}</span><span>Drag a table by its top bar to move it. Double-click the name to rename.</span></div>
+        <div class="tip"><span class="ico">${ICON.move}</span><span>Tables stay put while you seat students. Click <b>Edit layout</b> to move them, then drag a table by its top bar. Double-click a name to rename it.</span></div>
         <div class="tip"><span class="ico">${ICON.shuffle}</span><span><b>Shuffle</b> re-seats everyone randomly without breaking any rule. Locked students stay put.</span></div>`;
   return `<div class="insp">
     <div>
@@ -1463,7 +1464,7 @@ document.addEventListener('pointerdown', e => {
   const card = e.target.closest('.card:not(.ghost)');
   if (card) return startCardDrag(e, card);
   const head = e.target.closest('.group-head');
-  if (head) return startGroupDrag(e, head.closest('.group').dataset.id);
+  if (head && layoutMode) return startGroupDrag(e, head.closest('.group').dataset.id);
 });
 
 document.getElementById('room').addEventListener('dblclick', e => {
