@@ -132,20 +132,6 @@
     background-size: 40px 40px;
     box-shadow: inset 0 0 0 6px #fbf8f1;
   }
-  .front-zone { position: absolute; pointer-events: none; --fz: rgba(63,106,216,.08); --fz2: rgba(63,106,216,.015); --fzb: 1.5px dashed rgba(63,106,216,.3); }
-  .front-zone.top    { background: linear-gradient(to bottom, var(--fz), var(--fz2)); border-bottom: var(--fzb); border-radius: 20px 20px 0 0; }
-  .front-zone.bottom { background: linear-gradient(to top,    var(--fz), var(--fz2)); border-top: var(--fzb);    border-radius: 0 0 20px 20px; }
-  .front-zone.left   { background: linear-gradient(to right,  var(--fz), var(--fz2)); border-right: var(--fzb);  border-radius: 20px 0 0 20px; }
-  .front-zone.right  { background: linear-gradient(to left,   var(--fz), var(--fz2)); border-left: var(--fzb);   border-radius: 0 20px 20px 0; }
-  .fz-label {
-    position: absolute; z-index: 3; pointer-events: none; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
-    color: rgba(63,106,216,.85); white-space: nowrap; background: #f4f6fc; border: 1.5px dashed rgba(63,106,216,.4);
-    border-radius: 999px; padding: 2px 8px;
-  }
-  .fz-label.top    { right: 16px; top: calc(var(--f) - 11px); }
-  .fz-label.bottom { right: 16px; bottom: calc(var(--f) - 11px); }
-  .fz-label.left   { left: calc(var(--f) - 11px); bottom: 16px; writing-mode: vertical-rl; transform: rotate(180deg); padding: 8px 2px; }
-  .fz-label.right  { right: calc(var(--f) - 11px); bottom: 16px; writing-mode: vertical-rl; padding: 8px 2px; }
   .board {
     position: absolute; border-radius: 6px;
     background: #35584a; border: 3px solid #b99a6a;
@@ -233,13 +219,6 @@
   }
   .room-resize::after { content: ""; position: absolute; inset: 6px; border-right: 2px solid #fff; border-bottom: 2px solid #fff; }
   body.layout .room-resize { display: block; }
-  .front-handle { position: absolute; display: none; z-index: 5; touch-action: none; }
-  .front-handle::after { content: ""; position: absolute; background: var(--accent); border-radius: 4px; box-shadow: 0 0 0 2px #fff; }
-  .front-handle.h { height: 16px; cursor: ns-resize; }
-  .front-handle.h::after { left: 50%; top: 5px; width: 44px; height: 6px; margin-left: -22px; }
-  .front-handle.v { width: 16px; cursor: ew-resize; }
-  .front-handle.v::after { top: 50%; left: 5px; height: 44px; width: 6px; margin-top: -22px; }
-  body.layout .front-handle { display: block; }
   body.layout .board { cursor: grab; pointer-events: auto; touch-action: none; box-shadow: 0 0 0 3px rgba(63,106,216,.35); }
   .layout-banner {
     position: sticky; top: 0; left: 0; z-index: 20; display: none; align-items: center; gap: 10px;
@@ -389,7 +368,7 @@
 
   @media print {
     body { display: block; overflow: visible; background: #fff; }
-    header.top, aside, .toast, .gdel, .gbtn, .sdel, .links, .room-resize, .front-handle, .layout-banner { display: none !important; }
+    header.top, aside, .toast, .gdel, .gbtn, .sdel, .links, .room-resize, .layout-banner { display: none !important; }
     main { display: block; }
     .room-wrap { overflow: visible; }
     .room { margin: 0; box-shadow: none; background: #fff; }
@@ -444,7 +423,7 @@
   </aside>
 
   <div class="room-wrap" id="roomWrap">
-    <div class="layout-banner"><span><b>Editing layout.</b> Drag desks to reshape a table · drag a desk away to make it separate · drag the <b>board</b> to any wall · drag the blue handles to resize the room and front zone. Dotted lines show who counts as “next to” each other.</span></div>
+    <div class="layout-banner"><span><b>Editing layout.</b> Drag desks to reshape a table · drag a desk away to make it separate · drag the <b>board</b> to any wall · drag the blue corner handle to resize the room. Dotted lines show who counts as “next to” each other.</span></div>
     <div class="room" id="room"></div>
   </div>
 
@@ -500,7 +479,6 @@ const RULES = {
   avoid_adjacent: { text: 'Not sitting next to',      arg: 'student', pair: true },
   with_group:     { text: 'In the same group as',     arg: 'student', pair: true },
   avoid_gender:   { text: 'Not sitting next to a',    arg: 'gender' },
-  front:          { text: 'Sits in the front zone',   arg: null },
   alone:          { text: 'Sits alone (own desk)',    arg: null },
   in_group:       { text: 'Always sits at',           arg: 'group' },
 };
@@ -523,7 +501,7 @@ const ICON = {
    =====================================================================
    state = {
      className,
-     room:     { w, h, wall: 'top'|'right'|'bottom'|'left', pos: 0..1 (board centre along the wall), front: px },
+     room:     { w, h, wall: 'top'|'right'|'bottom'|'left', pos: 0..1 (board centre along the wall) },
      students: [{ id, name, gender, locked, rules: [{ id, type, target }] }],
      groups:   [{ id, name, x, y, seats: [{ id, x, y }] }],   // seat x/y are relative to the group's desk area
      seats:    { studentId: { g: groupId, s: seatId } },
@@ -564,11 +542,9 @@ function sampleState() {
   const rule = (who, type, target) => S[who].rules.push({ id: uid(), type, target: target ?? null });
   rule('Ben', 'avoid_adjacent', S.Jack.id);
   rule('Ben', 'avoid_group', S.Leo.id);
-  rule('Diego', 'front');
   rule('Hiro', 'alone');
   rule('Maya', 'with_group', S.Priya.id);
   rule('Kiara', 'avoid_gender', 'boy');
-  rule('Noah', 'front');
   rule('Noah', 'avoid_group', S.Theo.id);
   rule('Finn', 'avoid_adjacent', S.Wes.id);
   rule('Quinn', 'avoid_group', S.Ravi.id);
@@ -581,7 +557,7 @@ function sampleState() {
   for (const g of groups) for (const seat of g.seats) if (i < 20) seats[students[i++].id] = { g: g.id, s: seat.id };
   return {
     className: 'Room 12 · Grade 3',
-    room: { w: 920, h: 660, wall: 'top', pos: 0.5, front: 256 },
+    room: { w: 920, h: 660, wall: 'top', pos: 0.5 },
     students, groups, seats, selected: null,
   };
 }
@@ -589,6 +565,7 @@ function sampleState() {
 /** Bring plans saved by older versions (rectangular cols × rows tables) up to date. */
 function migrate(s) {
   s.students ||= []; s.groups ||= []; s.seats ||= {};
+  for (const st of s.students) st.rules = (st.rules || []).filter(r => RULES[r.type]);   // e.g. the retired front-zone rule
   for (const g of s.groups) {
     if (Array.isArray(g.seats)) continue;
     const map = {};
@@ -613,7 +590,7 @@ function migrate(s) {
   if (!s.room) {
     const right = Math.max(0, ...s.groups.map(g => g.x + groupBox(g).w));
     const bottom = Math.max(0, ...s.groups.map(g => g.y + groupBox(g).h));
-    s.room = { w: snap(Math.max(900, right + 40)), h: snap(Math.max(640, bottom + 40)), wall: 'top', pos: 0.5, front: 250 };
+    s.room = { w: snap(Math.max(900, right + 40)), h: snap(Math.max(640, bottom + 40)), wall: 'top', pos: 0.5 };
   }
   return s;
 }
@@ -661,13 +638,6 @@ function seatsAdjacent(a, b) {
   const sideBySide = oy >= SEAT_H * 0.25 && ox <= 0 && -ox <= NEAR;
   const stacked    = ox >= SEAT_W * 0.25 && oy <= 0 && -oy <= NEAR;
   return sideBySide || stacked;
-}
-function inFront(cx, cy) {
-  const R = state.room;
-  if (R.wall === 'top') return cy < R.front;
-  if (R.wall === 'bottom') return cy > R.h - R.front;
-  if (R.wall === 'left') return cx < R.front;
-  return cx > R.w - R.front;
 }
 function allSeats() {
   return state.groups.flatMap(g => g.seats.map(s => ({ g: g.id, s: s.id })));
@@ -732,7 +702,6 @@ function ruleBroken(owner, rule, ctx) {
     case 'avoid_adjacent': return !!q && (adj[key(p)] || []).includes(key(q));
     case 'with_group':     return !!q && q.g !== p.g;
     case 'avoid_gender':   return (adj[key(p)] || []).some(k => { const n = ctx.occ[k]; return n && byId[n] && byId[n].gender === rule.target; });
-    case 'front':          { const info = seatInfo[key(p)]; return !info || !inFront(info.cx, info.cy); }
     case 'alone':          { for (const sid in ctx.seats) if (sid !== owner.id && ctx.seats[sid].g === p.g) return true; return false; }
     case 'in_group':       return p.g !== rule.target;
   }
@@ -1023,17 +992,9 @@ function boardRect() {
   return { left: R.w - inset - thick, top: along, width: thick, height: len };
 }
 function roomDecorHTML() {
-  const R = state.room, f = R.front;
-  const zone = { top: `left:0;right:0;top:0;height:${f}px`, bottom: `left:0;right:0;bottom:0;height:${f}px`,
-                 left: `top:0;bottom:0;left:0;width:${f}px`, right: `top:0;bottom:0;right:0;width:${f}px` }[R.wall];
-  const handle = { top: `class="front-handle h" style="left:0;right:0;top:${f - 8}px"`,
-                   bottom: `class="front-handle h" style="left:0;right:0;top:${R.h - f - 8}px"`,
-                   left: `class="front-handle v" style="top:0;bottom:0;left:${f - 8}px"`,
-                   right: `class="front-handle v" style="top:0;bottom:0;left:${R.w - f - 8}px"` }[R.wall];
+  const R = state.room;
   const b = boardRect();
-  return `<div class="front-zone ${R.wall}" style="${zone}"></div><span class="fz-label ${R.wall}" style="--f:${f}px">Front zone</span>
-    <div ${handle} title="Drag to change how deep the front zone is"></div>
-    <div class="board ${R.wall}" style="left:${b.left}px;top:${b.top}px;width:${b.width}px;height:${b.height}px" title="Edit layout, then drag the board to any wall">BOARD</div>
+  return `<div class="board ${R.wall}" style="left:${b.left}px;top:${b.top}px;width:${b.width}px;height:${b.height}px" title="Edit layout, then drag the board to any wall">BOARD</div>
     <div class="room-resize" title="Drag to resize the room"></div>`;
 }
 
@@ -1209,7 +1170,7 @@ function overviewHTML(ev) {
         <div class="tip"><span class="ico">${ICON.move}</span><span>Drag a desk to move it within its table. Drop it on another table to move it there, or onto open floor to make it a separate desk.</span></div>
         <div class="tip"><span class="ico">${ICON.plus}</span><span>Use <b>+</b> on a table to add a desk, <b>×</b> on a desk to remove it, and <b>⟳</b> to rotate the table.</span></div>
         <div class="tip"><span class="ico">${ICON.hand}</span><span>Desks joined by a dotted line count as <b>next to</b> each other. Leave a gap between desks if students across a table shouldn't count.</span></div>
-        <div class="tip"><span class="ico">${ICON.rotate}</span><span>Drag the <b>board</b> to any wall; the front zone follows it. Drag the blue handles to resize the room and the front zone.</span></div>`
+        <div class="tip"><span class="ico">${ICON.rotate}</span><span>Drag the <b>board</b> to any wall, and drag the blue corner handle to resize the room.</span></div>`
     : `
         <div class="tip"><span class="ico">${ICON.hand}</span><span>Drag a student card onto a seat. Drop on someone to swap. While dragging, seats glow <b style="color:var(--ok)">green</b> or <b style="color:var(--bad)">red</b>.</span></div>
         <div class="tip"><span class="ico">${ICON.flag}</span><span>Click a student to set their gender and add rules like “not next to Jack” or “not next to a boy”.</span></div>
@@ -1235,7 +1196,6 @@ function overviewHTML(ev) {
         <div><span class="sw" style="background:var(--bad-bg);border-color:var(--bad)"></span>A rule is broken (hover for details)</div>
         <div><span class="sw" style="background:var(--table);border-color:var(--table-edge)"></span>Table / group</div>
         <div><span class="sw" style="background:var(--desk);border-color:var(--desk-edge)"></span>Individual desk</div>
-        <div><span class="sw" style="background:rgba(63,106,216,.08);border-color:rgba(63,106,216,.35);border-style:dashed"></span>Front zone</div>
       </div>
     </div>
   </div>`;
@@ -1433,7 +1393,7 @@ function startGroupDrag(e, gid) {
       const nx = clamp(snap(ox + dx), 8, state.room.w - w - 8), ny = clamp(snap(oy + dy), 8, state.room.h - h - 8);
       if (nx === g.x && ny === g.y) return;
       g.x = nx; g.y = ny;
-      render({ inspector: false });      // live: front-zone rules update while dragging
+      render({ inspector: false });
       document.querySelector(`.group[data-id="${gid}"]`)?.classList.add('moving');
     },
     onEnd(moved) { if (moved) render(); },
@@ -1450,7 +1410,6 @@ function startRoomResize(e) {
     onMove(ev, dx, dy) {
       R.w = Math.max(480, snap(c.w + 16), snap(w0 + dx));
       R.h = Math.max(360, snap(c.h + 16), snap(h0 + dy));
-      R.front = Math.min(R.front, Math.round((R.wall === 'top' || R.wall === 'bottom' ? R.h : R.w) * 0.7));
       render({ inspector: false });
     },
     onEnd(moved) { if (moved) render(); },
@@ -1468,27 +1427,10 @@ function startBoardDrag(e) {
       const wall = Object.keys(d).reduce((a, b) => (d[a] <= d[b] ? a : b));
       const horizontal = wall === 'top' || wall === 'bottom';
       const pos = clamp(horizontal ? p.x / R.w : p.y / R.h, 0.1, 0.9);
-      if (wall !== R.wall) R.front = Math.min(R.front, Math.round((horizontal ? R.h : R.w) * 0.6));
       R.wall = wall; R.pos = pos;
       render({ inspector: false });
     },
-    onEnd(moved) { if (moved) { render(); toast(`Board moved to the ${R.wall} wall — the front zone follows it`); } },
-  });
-}
-
-function startFrontDrag(e) {
-  const R = state.room;
-  drag(e, {
-    threshold: 2,
-    onStart: pushHistory,
-    onMove(ev) {
-      const p = roomPoint(ev);
-      const depth = { top: p.y, bottom: R.h - p.y, left: p.x, right: R.w - p.x }[R.wall];
-      const max = Math.round((R.wall === 'top' || R.wall === 'bottom' ? R.h : R.w) * 0.8);
-      R.front = clamp(snap(depth), 64, max);
-      render({ inspector: false });
-    },
-    onEnd(moved) { if (moved) render(); },
+    onEnd(moved) { if (moved) { render(); toast(`Board moved to the ${R.wall} wall`); } },
   });
 }
 
@@ -1514,7 +1456,6 @@ document.addEventListener('pointerdown', e => {
   if (e.target.closest('button, input, select, textarea')) return;
   if (layoutMode) {
     if (e.target.closest('.room-resize')) return startRoomResize(e);
-    if (e.target.closest('.front-handle')) return startFrontDrag(e);
     if (e.target.closest('.board')) return startBoardDrag(e);
     const seat = e.target.closest('.room .seat');
     if (seat) return startDeskDrag(e, seat);
@@ -1547,7 +1488,7 @@ document.getElementById('room').addEventListener('click', e => {
   if (add) return addDesk(add.dataset.addSeat);
   const rot = e.target.closest('[data-rotate]');
   if (rot) return rotateGroup(rot.dataset.rotate);
-  if (e.target === e.currentTarget || e.target.classList.contains('front-zone')) { if (state.selected) select(null); }
+  if (e.target === e.currentTarget) { if (state.selected) select(null); }
 });
 
 document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => addGroup(b.dataset.add)));
@@ -1637,7 +1578,7 @@ menu.addEventListener('click', async e => {
   else if (choice === 'sample') { pushHistory(); state = sampleState(); render({ animate: true }); toast('Sample class loaded — Undo to go back'); }
   else if (choice === 'empty') {
     pushHistory();
-    state = { className: 'My class', room: { w: 920, h: 660, wall: 'top', pos: 0.5, front: 256 }, students: [], groups: [], seats: {}, selected: null };
+    state = { className: 'My class', room: { w: 920, h: 660, wall: 'top', pos: 0.5 }, students: [], groups: [], seats: {}, selected: null };
     render(); toast('Started an empty class — Undo to go back');
   }
 });

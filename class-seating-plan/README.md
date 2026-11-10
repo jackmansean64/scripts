@@ -12,13 +12,12 @@ A single-file, no-install seating plan tool for elementary teachers. Open `index
   - Drag desks to make tables any shape. Drop a desk on another table to move it there, or on open floor to make it a separate desk. The student sitting there moves with it.
   - **+** adds a desk to a table, **×** removes one, **⟳** rotates a table 90°.
   - Dotted lines show which desks count as "next to" each other (desks touching or less than 24px apart, side by side or one behind the other). Leave a gap if students across a table shouldn't count.
-  - Drag the board to any wall; the front zone follows it. Drag the blue handles to resize the room and change how deep the front zone is.
+  - Drag the board to any wall, and drag the blue corner handle to resize the room.
 - **Rules per student** (click a card):
   - Not in the same group as *student*
   - Not sitting next to *student*
   - In the same group as *student*
   - Not sitting next to a *boy / girl*
-  - Sits in the front zone (shaded band near the board)
   - Sits alone (own desk)
   - Always sits at *group*
 - **Red cards**: any card whose rule is broken turns red (hover it to see why). While dragging, every seat glows green or red to preview the result of dropping there.
