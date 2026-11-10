@@ -7,7 +7,7 @@ A single-file, no-install seating plan tool for elementary teachers. Open `index
 ## Features
 
 - **Student cards**: drag them between seats, onto a classmate to swap, or back to the *Unseated* list. Works with mouse and touch.
-- **Groups**: individual desks, pairs, tables of 4, long tables (2 per side + 1 on the end), big tables and rows. Drag the top bar to move a group, double-click the name to rename it.
+- **Groups**: individual desks, pairs, tables (start with 4 seats; reshape or add desks in Edit layout) and rows. Drag the top bar to move a group, double-click the name to rename it.
 - **Edit layout** mode (top bar):
   - Drag desks to make tables any shape. Drop a desk on another table to move it there, or on open floor to make it a separate desk. The student sitting there moves with it.
   - **+** adds a desk to a table, **×** removes one, **⟳** rotates a table 90°.
